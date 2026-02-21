@@ -1,10 +1,19 @@
 # DOGL
 
-**Dynamic Orchestration Graph Language** — an open notation for describing processes, orchestration, integrated processes, and data flows. DOGL can model control flow and information exchange (who sends what to whom). The scope also includes **adapters**, **data transfer**, **message broker management**, **data storage**, and related concepts — not all of these parts are documented in the notation guide yet. BPMN 2.0–compatible, extensible, and friendly to analysts and developers.
+**Dynamic Orchestration Graph Language** — an open language for **business processes** and **orchestration programs**, from **RPA** to **Hyperautomation hub**. DOGL describes processes, orchestration, integrations, and data flows (control flow and information exchange). The scope also includes adapters, data transfer, message broker management, data storage, and related concepts — not all parts are documented in the notation guide yet. BPMN 2.0–compatible and extensible.
 
 ![DOGL mascot — Beagle](assets/dogl-mascot.png)
 
 Process files use the **.dogl** extension.
+
+## Why DOGL
+
+- **Human-friendly, git-friendly, no-code / low-code** — Plain text, readable by analysts; version and review as code; start with shapes and flows only, add detail when needed.
+- **Machine-friendly and AI-friendly** — Easy to parse, unambiguous structure (AST); convenient for tools, runtimes, and AI (analysis, generation, refactoring).
+- **Graph-based** — Processes are directed graphs (nodes = elements, edges = flows). This model is a well-established foundation for workflow control flow and verification (e.g. Petri nets, workflow nets, BPMN); DOGL is aligned with it and supports validation and export to diagrams.
+- **One source, many uses** — Same `.dogl` file for diagrams, validation, execution, and integration; single JSON AST for Rust, Python, JS, Java, C#.
+- **Analyst-first** — Designed so analysts can write and change processes without heavy tools; comments, traceability, and optional complexity (basics without codes, then optional codes and expressions).
+- **Extensible** — From simple flows to DMN decisions, call activities, and (planned) adapters, data transfer, and message brokers.
 
 ## Quick start
 
@@ -27,14 +36,10 @@ mod HelloProcess
 
 Save as `.dogl`. 
 
-## Features
+## Technical
 
-- Human-readable text, suitable for git and code review
-- Processes, orchestration, integrated processes, and data flows (information exchange)
-- Planned / partial: adapters, data transfer, message broker management, data storage
-- BPMN 2.0 concepts (events, tasks, gateways, flows)
-- Fast, predictable Rust parser
-- Single JSON AST for use from Python, JS, Java, C#, and Rust
+- BPMN 2.0 concepts (events, tasks, gateways, flows); DMN for decisions
+- Fast, predictable Rust parser; single JSON AST for Python, JS, Java, C#, Rust
 
 ## Usage (Rust)
 
