@@ -1,0 +1,7 @@
+mod HelloProcess
+
+() Start
+    => Task
+[] Task
+    => End
+() End
