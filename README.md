@@ -2,6 +2,8 @@
 
 **Dynamic Orchestration Graph Language** — an open language for **business processes** and **orchestration programs**, from **RPA** to **Hyperautomation hub**. DOGL describes processes, orchestration, integrations, and data flows (control flow and information exchange). The scope also includes adapters, data transfer, message broker management, data storage, and related concepts — not all parts are documented in the notation guide yet. BPMN 2.0–compatible and extensible.
 
+**Status:** This project is **in active development** (version **0.0.0**). The notation and API are not stable yet; the parser, AST, and BPMN export/import are being implemented. Use with caution and check the [roadmap](rd/roadmap.md) and [tasks](rd/tsks.md) for current scope.
+
 ![DOGL mascot — Beagle](assets/dogl-mascot.png)
 
 Process files use the **.dogl** extension.
