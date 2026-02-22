@@ -1,0 +1,15 @@
+collab OrderProcess
+
+() Start
+    => ReviewOrder
+[] ReviewOrder
+    => CheckAmount
+<> CheckAmount
+    => ApproveOrder
+    => RejectOrder
+[] ApproveOrder
+    => End
+[] RejectOrder
+    => RejectEnd
+() End
+() RejectEnd

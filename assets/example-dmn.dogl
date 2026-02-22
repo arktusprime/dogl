@@ -1,0 +1,19 @@
+collab OrderRoutingExample
+
+(s) Start
+    => RouteOrder
+
+<x> RouteOrder
+  order.amount > 10000 => HighValueReview
+  customer.tier = "gold" => AutoApprove
+  =>d ManualReview
+
+[] HighValueReview
+    => MergeDone
+[] AutoApprove
+    => MergeDone
+[] ManualReview
+    => MergeDone
+<> MergeDone
+    => Done
+(e) Done

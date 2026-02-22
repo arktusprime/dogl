@@ -1,0 +1,23 @@
+collab OrderWithDmnRef
+
+(s) Start
+    => RouteOrder
+
+<x> RouteOrder @dmn: "OrderRoutingTable"
+    =>d ManualReview
+
+[] HighValueReview
+    => MergeDone
+[] AutoApprove
+    => MergeDone
+[] ManualReview
+    => MergeDone
+<> MergeDone
+    => Done
+(e) Done
+
+dmn OrderRoutingTable
+
+  order.amount > 10000  => HighValueReview
+  customer.tier = "gold"    => AutoApprove
+  =>d ManualReview

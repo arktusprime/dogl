@@ -1,0 +1,30 @@
+collab OrderProcess
+
+== CustomerService
+    -- Agent
+        || Initiation
+            (s) StartOrder
+                => ReviewApplication
+            [u] ReviewApplication
+                => ProcessData
+                => ApproveRequest
+        || Processing
+            [st] ProcessData
+                => OrderDone
+            (e) OrderDone
+    -- Supervisor
+        || Processing
+            [u] ApproveRequest
+                => Approved
+            (e) Approved
+
+== Warehouse
+    -- Picker
+        || Fulfillment
+            [m] PickItems
+                => QualityCheck
+    -- Manager
+        || Fulfillment
+            [u] QualityCheck
+                => FulfillmentDone
+            (e) FulfillmentDone
