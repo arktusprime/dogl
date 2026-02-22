@@ -14,6 +14,21 @@ Process files use the **.dogl** extension.
 - **One source, many uses** — Same `.dogl` file for diagrams, validation, execution, and integration; single JSON AST for Rust, Python, JS, Java, C#.
 - **Analyst-first** — Designed so analysts can write and change processes without heavy tools; comments, traceability, and optional complexity (basics without codes, then optional codes and expressions).
 - **Extensible** — From simple flows to DMN decisions, call activities, and (planned) adapters, data transfer, and message brokers.
+- **Git-diff friendly** — Plain text and clear structure give readable, reviewable diffs; process changes are easy to track and approve in pull requests.
+
+## Portable process logic
+
+DOGL is a **notation that makes process logic portable between systems**. One `.dogl` source can be validated, rendered as a diagram, and exported to **BPMN 2.0** — so the same process can run on **Camunda**, **Flowable**, **Bizagi**, **jBPM**, **Bonita**, or any BPMN-compatible engine. You design in a single, human-friendly format; you choose (or change) the execution platform without rewriting the process.
+
+## Fast deployment: processes in a separate repo
+
+A **dedicated repo for process definitions** pays off when the format is **readable and diff-friendly** — otherwise you get a repo full of XML that nobody wants to edit or review. DOGL gives you plain-text `.dogl` files: analysts and process owners edit in the repo, and changes produce **clear, minimal diffs** that are easy to review and approve. That's what makes the separate-repo pattern work:
+
+- Edit `.dogl`; changes go through normal code review (git diff shows exactly what changed).
+- CI builds BPMN (or your engine’s format) and publishes to your BPM engine; no need to redeploy the rest of the stack.
+- Shorter cycle for process updates: fix a step, add a branch, or tune a decision — ship the process, not the whole system.
+
+**DOGL + separate repo** = readable, versioned source that feeds your BPM engine. Use it with your BPM system to get portable logic and fast, low-risk process deployments.
 
 ## Quick start
 
@@ -21,7 +36,7 @@ No codes, no expressions — just shapes and flows. Four shapes: `()` event, `[]
 
 
 ```dogl
-mod HelloProcess
+collab HelloProcess
 
 () Start
     => Task
@@ -34,7 +49,7 @@ mod HelloProcess
 
 ![DOGL simple process 1](assets/simple1.jpg)
 
-Save as `.dogl`. 
+Save as `.dogl`. **More:** [notation/QUICK_START.md](notation/QUICK_START.md) · [notation/](notation/) (cheat-sheet, full guide).
 
 ## Technical
 
