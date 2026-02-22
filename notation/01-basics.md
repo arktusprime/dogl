@@ -22,7 +22,7 @@ collab ProcessName
 
 You can have **several `collab`** in one file; each starts a new collab. Use a name that identifies the process or process group (e.g. `OrderProcess`, `Onboarding`). All elements and flows that follow belong to this collab until the next `collab` or end of file.
 
-**In the AST**, a collab contains a set of **Pools** (and their lanes, stages, and elements). If you don’t use pools (Part 4), the collab still has one implicit pool with one lane and one stage.
+**In the AST**, a collab contains a set of **Pools** (and their lanes, stages, and elements). If you don’t declare any pool (Part 4), the collab has one **implicit** pool; that pool has one implicit lane and one implicit stage, so you can write elements directly under the collab.
 
 ---
 
@@ -51,7 +51,7 @@ To show that control passes from one element to another, use the **sequence flow
 2. After `=>` write **only the name** of the target element (e.g. `=> ReviewOrder`). Do not repeat the element type.
 3. **Default flow** from a gateway: if you don’t mark one explicitly, the **first** outgoing flow in the text is treated as the default. In basics you don’t need a special symbol for that.
 
-Every element you reference in a flow must be **declared** in the same pool (with its symbol and name). If you don't declare pools, everything is in one collab and the collab has one implicit pool anyway. **Sequence flow** (`=>`) cannot cross pools — BPMN allows it only within one pool; cross-pool is message flow (`->`, see Part 2). End events have no outgoing flows.
+Every element you reference in a flow must be **declared** in the same pool (with its symbol and name). If you don’t declare pools, the collab has one implicit pool (and one implicit lane and stage), so everything belongs to that pool. **Sequence flow** (`=>`) cannot cross pools — BPMN allows it only within one pool; cross-pool is message flow (`->`, see Part 2). End events have no outgoing flows.
 
 ---
 

@@ -8,7 +8,16 @@ After [Part 1](01-basics.md), [Part 2](02-optional-codes-and-flows.md), and [Par
 
 ## Organization: pools, lanes, stages (optional)
 
-You can structure the process in three levels. **This is optional.** If you omit them, the process has one pool, one lane, and one stage; you write elements and flows directly under the collab.
+Structure is a **chain of optional levels**. Each level has a default (one implicit container) if you do not declare it; but **once you declare that level anywhere, every element must be placed inside some container of that level**.
+
+### Optionality chain
+
+| Level   | Required? | Default if not declared | Rule if declared |
+|---------|-----------|--------------------------|------------------|
+| **collab** | **Yes**   | — | Every file has at least one `collab`; all content belongs to a collab. |
+| **pool**   | No       | 1 implicit pool         | If any `==` pool is declared in the collab, **every** element must lie inside some pool. |
+| **lane**   | No       | 1 implicit lane per pool| If any `--` lane is declared in a pool, **every** element in that pool must lie inside some lane. |
+| **stage**  | No       | 1 implicit stage        | Stage applies across lanes. You need not declare it in every lane; but if **any** `\|\|` stage is declared (in the collab/pool), **every** element must lie inside some stage. |
 
 | Symbol | Level  | Meaning (example) |
 |--------|--------|--------------------|
@@ -16,7 +25,7 @@ You can structure the process in three levels. **This is optional.** If you omit
 | `--`   | Lane   | Role / department in a pool |
 | `\|\|` | Stage  | Phase / stage in the process |
 
-Elements live at **lane × stage** (each such intersection is a “quadrant”). If you use pools/lanes/stages, everything must sit inside a pool → lane → stage.
+Elements live at **lane × stage** (each such intersection is a “quadrant”). The parser infers one implicit pool, one implicit lane, and one implicit stage when you write elements directly under `collab` without declaring `==`, `--`, or `\|\|`.
 
 **Example without structure:**
 

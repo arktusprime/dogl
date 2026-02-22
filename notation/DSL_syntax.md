@@ -22,6 +22,6 @@ Text-based, BPMN-aligned notation for **processes**, **orchestration**, **integr
 - **Basics:** `collab Name` → elements `()` `[]` `<>` `{}` with PascalCase names → connect with `=>` (indented under each element). Default flow from gateway = first in text.
 - **Optional:** Add codes `(s)`, `[u]`, `<x>`, `{d}` etc.; add `=>d`, `->`, `.>` when needed.
 - **Expressions:** `@do` (placeholder or `@do.exec` etc.), `@dmn` (gateway), `@call` (call activity). Only on the element, not on the arrow.
-- **Structure:** Optional `==` pool, `--` lane, `||` stage.
+- **Structure:** Optional `==` pool, `--` lane, `||` stage. Default = one implicit of each if not declared; once you declare a level, every element must lie inside some container of that level (see Part 4).
 
 Start with [Part 1](01-basics.md) for a detailed introduction to the simplest concepts.
