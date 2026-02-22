@@ -1,0 +1,15 @@
+collab HelloProcess
+
+() Start
+    => FirstTask
+[] FirstTask
+    => FistGateway
+<> FistGateway
+    => SenondTask
+    => ThirdTask
+[] SenondTask
+    => FirstEnd
+() FirstEnd
+[] ThirdTask
+    => SenondEnd
+() SenondEnd
