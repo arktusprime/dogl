@@ -12,6 +12,14 @@ pub enum DomainError {
     DmnMultipleDefaults,
     /// Flow endpoint (from_uid or to_uid) is not an element in the aggregate.
     FlowEndpointNotFound { uid: u128 },
+    /// Layout section references a pool id that does not exist in the collab.
+    LayoutUnknownPoolId { pool_id: String },
+    /// Layout section references a lane id that does not exist in the pool.
+    LayoutUnknownLaneId { pool_id: String, lane_id: String },
+    /// Layout section references a stage id that does not exist in the pool.
+    LayoutUnknownStageId { pool_id: String, stage_id: String },
+    /// Layout section references an element id that is not found in the pool.
+    LayoutUnknownElementId { pool_id: String, element_id: String },
 }
 
 impl std::fmt::Display for DomainError {
@@ -28,6 +36,18 @@ impl std::fmt::Display for DomainError {
             }
             DomainError::FlowEndpointNotFound { uid } => {
                 write!(f, "flow endpoint uid {} not found in aggregate", uid)
+            }
+            DomainError::LayoutUnknownPoolId { pool_id } => {
+                write!(f, "layout: unknown pool id {:?}", pool_id)
+            }
+            DomainError::LayoutUnknownLaneId { pool_id, lane_id } => {
+                write!(f, "layout: unknown lane id {:?} in pool {:?}", lane_id, pool_id)
+            }
+            DomainError::LayoutUnknownStageId { pool_id, stage_id } => {
+                write!(f, "layout: unknown stage id {:?} in pool {:?}", stage_id, pool_id)
+            }
+            DomainError::LayoutUnknownElementId { pool_id, element_id } => {
+                write!(f, "layout: unknown element id {:?} in pool {:?}", element_id, pool_id)
             }
         }
     }

@@ -21,7 +21,7 @@ pub use element::{
 };
 pub use flow::Flow;
 pub use dmn::{Dmn, DmnRule};
-pub use layout::Layout;
+pub use layout::{Layout, LayoutGroupedByPool, PoolLayoutData};
 pub use pool::{Lane, Pool, Quadrant, Stage};
 pub use collab::Collab;
 pub use dogl_file::DoglFile;
