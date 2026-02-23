@@ -8,6 +8,29 @@
 
 Process files use the **.dogl** extension.
 
+## Quick start
+
+No codes, no expressions — just shapes and flows. Four shapes: `()` event, `[]` task, `<>` gateway, `{}` artifact. Connect with `=>` on an indented line under each element. Names in **PascalCase**.
+
+
+```dogl
+collab HelloProcess
+
+() Start
+    => Task
+[] Task
+    => End
+() End
+```
+
+*Same process — text (above) and diagram (below) are equivalent.*
+
+![DOGL simple process 1](assets/simple1.jpg)
+
+Save as `.dogl`. **More:** [notation/](notation/).
+
+[Cheat sheet](notation/cheat-sheet.md).
+
 ## Why DOGL
 
 - **Human-friendly, git-friendly, no-code / low-code** — Plain text, readable by analysts; version and review as code; start with shapes and flows only, add detail when needed.
@@ -31,27 +54,6 @@ A **dedicated repo for process definitions** pays off when the format is **reada
 - Shorter cycle for process updates: fix a step, add a branch, or tune a decision — ship the process, not the whole system.
 
 **DOGL + separate repo** = readable, versioned source that feeds your BPM engine. Use it with your BPM system to get portable logic and fast, low-risk process deployments.
-
-## Quick start
-
-No codes, no expressions — just shapes and flows. Four shapes: `()` event, `[]` task, `<>` gateway, `{}` artifact. Connect with `=>` on an indented line under each element. Names in **PascalCase**.
-
-
-```dogl
-collab HelloProcess
-
-() Start
-    => Task
-[] Task
-    => End
-() End
-```
-
-*Same process — text (above) and diagram (below) are equivalent.*
-
-![DOGL simple process 1](assets/simple1.jpg)
-
-Save as `.dogl`. **More:** [notation/QUICK_START.md](notation/QUICK_START.md) · [notation/](notation/) (cheat-sheet, full guide).
 
 ## Technical
 
