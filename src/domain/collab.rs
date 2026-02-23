@@ -1,15 +1,13 @@
 //! Collab: aggregate root. Contains pools, message flows, DMN blocks, optional layout.
 //! Aggregate invariant: message flow endpoints must be elements in this collab (review1 §2.3).
 
-use std::collections::HashSet;
-
 use std::collections::HashMap;
 
 use crate::domain::dmn::Dmn;
 use crate::domain::error::DomainError;
 use crate::domain::flow::Flow;
 use crate::domain::layout::{Layout, LayoutGroupedByPool, PoolLayoutData};
-use crate::domain::pool::Pool;
+use crate::domain::pool::{all_element_uids, Pool};
 use crate::domain::traits::Identifiable;
 use crate::domain::value_objects::{CollabId, Uid};
 
@@ -41,15 +39,7 @@ impl Collab {
 
     /// Adds a message flow. Returns `Err` if from_uid or to_uid is not an element in this collab.
     pub fn add_message_flow(&mut self, flow: Flow) -> Result<(), DomainError> {
-        let uids: HashSet<Uid> = self
-            .pools
-            .iter()
-            .flat_map(|p| {
-                p.quadrants
-                    .iter()
-                    .flat_map(|q| q.elements.iter().map(Identifiable::uid))
-            })
-            .collect();
+        let uids = all_element_uids(&self.pools);
         if !uids.contains(&flow.from_uid) {
             return Err(DomainError::FlowEndpointNotFound { uid: flow.from_uid });
         }
@@ -286,6 +276,60 @@ mod tests {
         grouped.insert("NoSuchPool".to_string(), PoolLayoutData::default());
         let err = layout_from_grouped(&collab, &grouped).unwrap_err();
         assert!(matches!(err, DomainError::LayoutUnknownPoolId { pool_id } if pool_id == "NoSuchPool"));
+    }
+
+    #[test]
+    fn layout_from_grouped_unknown_lane_id_rejects() {
+        use crate::domain::layout::PoolLayoutData;
+        use crate::domain::value_objects::Bounds;
+        use std::collections::HashMap;
+
+        let collab = collab_with_pool_lane_stage_and_elements();
+        let mut lanes = HashMap::new();
+        lanes.insert("NoSuchLane".to_string(), Bounds::new(0.0, 0.0, 100.0, 50.0).unwrap());
+        let mut grouped = HashMap::new();
+        grouped.insert(
+            "P1".to_string(),
+            PoolLayoutData {
+                pool: None,
+                lanes,
+                stages: HashMap::new(),
+                elements: HashMap::new(),
+            },
+        );
+        let err = layout_from_grouped(&collab, &grouped).unwrap_err();
+        assert!(matches!(
+            err,
+            DomainError::LayoutUnknownLaneId { pool_id, lane_id }
+                if pool_id == "P1" && lane_id == "NoSuchLane"
+        ));
+    }
+
+    #[test]
+    fn layout_from_grouped_unknown_stage_id_rejects() {
+        use crate::domain::layout::PoolLayoutData;
+        use crate::domain::value_objects::Bounds;
+        use std::collections::HashMap;
+
+        let collab = collab_with_pool_lane_stage_and_elements();
+        let mut stages = HashMap::new();
+        stages.insert("NoSuchStage".to_string(), Bounds::new(0.0, 0.0, 120.0, 300.0).unwrap());
+        let mut grouped = HashMap::new();
+        grouped.insert(
+            "P1".to_string(),
+            PoolLayoutData {
+                pool: None,
+                lanes: HashMap::new(),
+                stages,
+                elements: HashMap::new(),
+            },
+        );
+        let err = layout_from_grouped(&collab, &grouped).unwrap_err();
+        assert!(matches!(
+            err,
+            DomainError::LayoutUnknownStageId { pool_id, stage_id }
+                if pool_id == "P1" && stage_id == "NoSuchStage"
+        ));
     }
 
     #[test]

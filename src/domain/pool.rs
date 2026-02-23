@@ -65,6 +65,14 @@ pub struct Pool {
     pub sequence_flows: Vec<Flow>,
 }
 
+/// Collects all element UIDs from the given pools (used for flow endpoint validation).
+pub fn all_element_uids(pools: &[Pool]) -> HashSet<Uid> {
+    pools
+        .iter()
+        .flat_map(|p| p.quadrants.iter().flat_map(|q| q.elements.iter().map(Identifiable::uid)))
+        .collect()
+}
+
 impl Pool {
     pub fn new(uid: Uid, id: impl Into<PoolId>) -> Self {
         Self {
@@ -79,11 +87,7 @@ impl Pool {
 
     /// Adds a sequence flow. Returns `Err` if from_uid or to_uid is not an element in this pool.
     pub fn add_sequence_flow(&mut self, flow: Flow) -> Result<(), DomainError> {
-        let uids: HashSet<Uid> = self
-            .quadrants
-            .iter()
-            .flat_map(|q| q.elements.iter().map(Identifiable::uid))
-            .collect();
+        let uids = all_element_uids(std::slice::from_ref(self));
         if !uids.contains(&flow.from_uid) {
             return Err(DomainError::FlowEndpointNotFound { uid: flow.from_uid });
         }
