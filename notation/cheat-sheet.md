@@ -1,110 +1,95 @@
 # DOGL cheat sheet
 
-Quick ref. Full guide: [DSL_syntax.md](DSL_syntax.md).
+Quick reference for surface syntax. Full guide: [DSL_syntax.md](DSL_syntax.md).
 
 ---
 
-# BASIC (page 1)
-
-No codes. Default flow = first in text. Identifiers in **PascalCase**.
-
-## File start
+## Basic surface syntax
 
 ```dogl
 collab ProcessName
-```
-
-## Elements (no codes)
-
-| Symbol | Element  | Notes |
-|--------|----------|--------|
-| `()`   | Event    | Type from inputs/outputs (no in = start, no out = end) |
-| `[]`   | Task     | Generic task |
-| `<>`   | Gateway  | Default **OR** (one or more paths) |
-| `{}`   | Artifact | Data/document |
-
-## Flows
-
-Only **`=>`**. Each connection on a **new line, indented** under the element. Use **only the element name** (e.g. `=> ReviewOrder`). **Default flow** from a gateway = **first** outgoing flow in the text.
-
-## Behavior placeholder
-
-**`@do`** + text (e.g. `@do check amount`) — documents intent. **Does not execute** until you add a qualifier later (e.g. `@do.exec: ...`). Gateway routing = DMN (match + default `_`), not a separate condition.
-
-## Example
-
-```dogl
-collab OrderProcess
 
 () Start
     => ReviewOrder
 [] ReviewOrder
-    => CheckAmount
-<> CheckAmount
-    => ApproveOrder
-    => RejectOrder
-[] ApproveOrder
     => End
 () End
 ```
 
-## Comments
+### Basic shapes
 
-- `//` line comment  
-- `[[ ... ]]` annotation
+| Syntax | Surface meaning |
+| --- | --- |
+| `()` | event-like node |
+| `[]` | task-like node |
+| `<>` | gateway-like node |
+| `{}` | artifact-like item |
+
+### Basic connection
+
+| Syntax | Meaning |
+| --- | --- |
+| `=>` | process-internal connection |
 
 ---
 
-# ADVANCED (page 2)
+## Optional syntax
 
-Optional codes and flows. Three commands: **@do** · **@dmn** · **@call**.
+### Codes
 
-## Optional element codes
+| Syntax | Direction |
+| --- | --- |
+| `(s)` | `StartEvent` |
+| `(i)` | intermediate event |
+| `(e)` | `EndEvent` |
+| `[u]` | `UserTask` |
+| `[st]` | `ServiceTask` |
+| `[bu]` | `BusinessRuleTask` |
+| `[call]` | `CallActivity` |
+| `<x>` | `ExclusiveGateway` |
+| `<p>` | `ParallelGateway` |
+| `<i>` | `InclusiveGateway` |
+| `<eb>` | `EventBasedGateway` |
 
-| Element  | Optional codes |
-|----------|-----------------|
-| Events   | `(s)` start · `(i)` intermediate · `(e)` end |
-| Tasks    | `[]` · `[m]` manual · `[u]` user · `[st]` service · `[rt]` receive · `[se]` send · `[sc]` script · `[bu]` business rule · `[sm]` send msg · `[rm]` receive msg · `[call]` call activity |
-| Gateways | `<>` OR · `<x>` XOR · `<p>` AND · `<i>` OR · `<c>` complex · `<eb>` event-based |
-| Artifacts| `{}` · `{d}` `{db}` `{f}` `{r}` `{doc}` `{msg}` `{e}` `{c}` |
+### Connections
 
-## Optional flows
+| Syntax | Canonical direction |
+| --- | --- |
+| `=>d` | default `SequenceFlow` |
+| `->` | `MessageFlow` |
+| `.>` | `DataAssociation` |
 
-| Arrow | Meaning |
-|-------|---------|
-| `=>d` | Default flow (exactly one required at DMN gateway) |
-| `->`  | Message flow (between pools) |
-| `.>`  | Data association (artifact ↔ activity) |
+### Commands
 
-## Expressions
+| Syntax | Meaning |
+| --- | --- |
+| `@do` | placeholder or behavior attachment |
+| `@dmn` | decision reference |
+| `@call` | call-activity reference |
+| `@~...` | disabled form |
 
-| @ | Purpose |
-|---|---------|
-| **@do** | Placeholder: `@do text`. Executable: `@do.exec`, `@do.timer`, `@do.timeout`, `@do.notify`, etc. Gateway routing = DMN only. |
-| **@dmn:** | Gateway: DMN decision (ID or path) |
-| **@call:** | Call activity: another process (ID or path); use on `[call]` task |
-| `@~...` | Disable (e.g. `@~do.exec: ...`) |
+### Structure
 
-## Structure (optional)
+| Syntax | Surface role |
+| --- | --- |
+| `==` | participant-like grouping |
+| `--` | lane-like grouping |
+| `\|\|` | stage-like DOGL extension |
 
-| Symbol | Level |
-|--------|--------|
-| `==` | Pool |
-| `--` | Lane |
-| `\|\|` | Stage |
+---
 
-## DMN decision (match-style)
+## Semantic reminder
 
-Result = **element name** (where the gateway routes to). Write only the conditions you need per row; no padding. Default (catch-all) row = **`=>d ElementName`** (required; same line is catch-all rule and default flow). “any”.
+This sheet is about **syntax**.
 
-```dogl
-dmn RouteByClientType
+Canonical semantics should be read through BPMN-aligned types such as:
 
-  ClientType = "New"     => SalesRepTask
-  ClientType = "VIP"     => VIPAccountManagerTask
-  =>d AccountManagerTask
-```
+- `DoglFile`
+- `Collaboration`
+- `Participant`
+- `Process`
+- `FlowNode`
+- `SequenceFlow`
+- `MessageFlow`
 
-The table **does** decide where to go. For that to work at runtime, the input (e.g. ClientType) must already be in the **process instance** — set or loaded by some earlier step. **Two options:** (1) **Inline** — rules directly under the gateway (no `@dmn`). (2) **Reference** — `dmn DecisionName` elsewhere, gateway has `@dmn: "DecisionName"`.
-
-Reference from gateway: `@dmn: "RouteByClientType"`. Flows are inferred from the table. For inline syntax and several inputs (columns), see Part 3. The gateway’s outgoing flows are inferred from the table.
+DOGL-specific constructs such as stage-like grouping remain extensions rather than BPMN-native core semantics.

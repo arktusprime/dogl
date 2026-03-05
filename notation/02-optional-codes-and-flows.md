@@ -1,85 +1,98 @@
-# Part 2 — Optional codes and flows
+# Part 2 - Optional codes and flows
 
-After [Part 1 (basics)](01-basics.md) you can add **optional codes** to elements and use **extra flow types**. All of this is optional; basics are enough for many models.
+After [Part 1](01-basics.md) you can refine the surface notation with optional codes and additional connection forms.
 
-**See also:** [Index (DSL_syntax.md)](DSL_syntax.md) · [Cheat sheet](cheat-sheet.md)
+**See also:** [Index](DSL_syntax.md) · [Cheat sheet](cheat-sheet.md)
 
 ---
 
 ## Why codes are optional
 
-In Part 1 we used only shapes: `()`, `[]`, `<>`, `{}`. You can keep that. When you need an **explicit type** (e.g. “this is a start event” or “this is an XOR gateway”), you add a **code** inside the symbol. Codes are optional and can be introduced gradually.
+The basic shapes are intentionally lightweight. When you need a more explicit BPMN-like surface form, you can add a code inside the shape.
+
+These codes are still surface syntax. Canonical semantics should be interpreted through BPMN-aligned families such as `Event`, `Activity`, `Gateway`, `SequenceFlow`, `MessageFlow`, `Association`, and `DataAssociation`.
 
 ---
 
-## Events (optional codes)
+## Events
 
-| Syntax | Type         | When to use |
-|--------|--------------|-------------|
-| `()`   | (inferred)   | As in Part 1: start / intermediate / end from connectivity. |
-| `(s)`  | Start        | Explicit start event. |
-| `(i)`  | Intermediate | Explicit intermediate event. |
-| `(e)`  | End          | Explicit end event. |
-
----
-
-## Tasks (optional codes)
-
-| Syntax   | Type          | Use case |
-|----------|---------------|----------|
-| `[]`     | Task          | Generic (default). |
-| `[m]`    | Manual        | Human work, no system. |
-| `[u]`    | User          | User task in an app. |
-| `[st]`   | Service       | Automated service call. |
-| `[rt]`   | Receive       | Wait for message/trigger. |
-| `[se]`   | Send          | Send message. |
-| `[sc]`   | Script        | Run script. |
-| `[bu]`   | Business rule | Rule engine. |
-| `[sm]`   | Send message  | Outbound message. |
-| `[rm]`   | Receive message | Inbound message. |
-| `[call]` | Call activity | Invokes another process (see Part 3). |
+| Syntax | Surface meaning | BPMN-aligned direction |
+| --- | --- | --- |
+| `()` | inferred event | event-shaped `FlowNode` |
+| `(s)` | start | `StartEvent` |
+| `(i)` | intermediate | `IntermediateCatchEvent` or `IntermediateThrowEvent`, depending on meaning |
+| `(e)` | end | `EndEvent` |
 
 ---
 
-## Gateways (optional codes)
+## Tasks
 
-| Syntax | Type        | Behavior |
-|--------|-------------|----------|
-| `<>`   | (default)   | **OR** (inclusive: one or more paths). |
-| `<x>`  | Exclusive   | Exactly one path (XOR). |
-| `<p>`  | Parallel    | All paths (AND). |
-| `<i>`  | Inclusive   | One or more paths (OR). |
-| `<c>`  | Complex     | Custom condition logic. |
-| `<eb>` | Event-based | Branch on event. |
+| Syntax | Surface meaning | BPMN-aligned direction |
+| --- | --- | --- |
+| `[]` | generic task | `Task` or generic activity |
+| `[m]` | manual | `ManualTask` |
+| `[u]` | user | `UserTask` |
+| `[st]` | service | `ServiceTask` |
+| `[rt]` | receive | `ReceiveTask` |
+| `[se]` | send | `SendTask` |
+| `[sc]` | script | `ScriptTask` |
+| `[bu]` | business rule | `BusinessRuleTask` |
+| `[call]` | call activity | `CallActivity` |
 
----
-
-## Artifacts (optional codes)
-
-| Symbol  | Meaning |
-|---------|---------|
-| `{}`    | Artifact (default). |
-| `{d}`   | Data. |
-| `{db}`  | Database. |
-| `{f}`   | File. |
-| `{r}`   | Report. |
-| `{doc}` | Document. |
-| `{msg}` | Message. |
-| `{e}`   | Email. |
-| `{c}`   | Collection. |
+Some shorthand variants may remain convenient in notation, but canonical semantics should normalize to BPMN-valid task families rather than informal custom names.
 
 ---
 
-## Flows beyond basics
+## Gateways
 
-In Part 1 we used only **`=>`** (sequence flow). You can add:
+| Syntax | Surface meaning | BPMN-aligned direction |
+| --- | --- | --- |
+| `<>` | default gateway form | gateway-shaped `FlowNode` |
+| `<x>` | exclusive | `ExclusiveGateway` |
+| `<p>` | parallel | `ParallelGateway` |
+| `<i>` | inclusive | `InclusiveGateway` |
+| `<c>` | complex | `ComplexGateway` |
+| `<eb>` | event-based | `EventBasedGateway` |
 
-| Syntax | Use |
-|--------|-----|
-| **`=>d`** | **Default flow** from a gateway when it is not the first outgoing flow in the text. |
-| **`->`** | **Message flow** between pools/participants. |
-| **`.>`** | **Data association** (links an artifact to an activity). |
+---
 
-Rules unchanged: use **only the element identifier** in flows (e.g. `=> ReviewOrder`). **PascalCase** for identifiers.
+## Artifact-like and data-like forms
 
-**Next:** [Part 3 — Expressions and DMN](03-expressions-and-dmn.md) (@do, @dmn, @call; executable detail; DMN decision tables).
+Surface shorthand such as `{d}` or `{db}` is useful in notation, but explanatory prose should not collapse all `{...}` forms into one generic artifact bucket.
+
+Recommended semantic interpretation:
+
+| Syntax | Surface meaning | Canonical direction |
+| --- | --- | --- |
+| `{}` | generic artifact-like item | `Artifact` family if no stronger meaning exists |
+| `{d}` | data object | `DataObjectReference` |
+| `{db}` | data store | `DataStoreReference` |
+| `{f}` | file-like data | data-related structure or explicit extension |
+| `{doc}` | document-like artifact | `Artifact` or explicit extension, depending on meaning |
+| `{msg}` | message-like item | explicit message-related artifact or integration-oriented extension |
+
+The important rule is to keep canonical semantic taxonomy explicit instead of treating all `{...}` forms as the same semantic type.
+
+---
+
+## Connections beyond basics
+
+In addition to `=>`, the notation may use:
+
+| Syntax | Surface meaning | Canonical direction |
+| --- | --- | --- |
+| `=>d` | default branch | `SequenceFlow` marked as default |
+| `->` | participant-crossing message relation | `MessageFlow` |
+| `.>` | data linkage | `DataAssociation` |
+
+Important distinction:
+
+- `SequenceFlow` is process-owned control flow;
+- `MessageFlow` is collaboration-owned interaction flow;
+- `DataAssociation` is data linkage, not control flow.
+
+These may share a common abstraction in code, but they should not be explained as one undifferentiated semantic `Flow`.
+
+---
+
+**Next:** [Part 3 - Expressions and DMN](03-expressions-and-dmn.md)

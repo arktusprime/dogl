@@ -1,27 +1,56 @@
-# DOGL syntax guide (index)
+# DOGL syntax guide
 
-Text-based, BPMN-aligned notation for **processes**, **orchestration**, **integrations**, and **data flows** — including control flow and information exchange. The scope also includes **adapters**, **data transfer**, **message broker management**, **data storage**, and the like; not all of these are covered in the current parts yet. The guide is split into **four parts** with **increasing complexity**. Read in order if you are new; use the links to jump to a topic.
+This guide explains the **surface syntax** of DOGL.
 
-**Quick ref:** [cheat-sheet.md](cheat-sheet.md) (BASIC + ADVANCED)
+It is intentionally distinct from the canonical semantic model described in:
+
+- `rd/arch/arch88.md`
+- `rd/arch/design88-1-AST.md`
+
+Read the notation guide for authoring syntax. Read the architecture documents for BPMN-aligned semantic structure and ownership rules.
 
 ---
 
-## Reading order (simple → advanced)
+## Reading order
 
 | Part | Content |
-|------|--------|
-| **[Part 1 — Basics](01-basics.md)** | Simple concepts in detail: collab, four elements without codes `()` `[]` `<>` `{}`, flows with `=>` only, PascalCase, `@do` placeholder. One full example. |
-| **[Part 2 — Optional codes and flows](02-optional-codes-and-flows.md)** | Optional letter codes for events, tasks, gateways, artifacts. Flows beyond basics: `=>d`, `->`, `.>`. |
-| **[Part 3 — Expressions and DMN](03-expressions-and-dmn.md)** | Commands `@do`, `@dmn`, `@call`. Advanced `@do.*` (executable detail). DMN decision tables (at gateway and notation). |
-| **[Part 4 — Organization and practices](04-organization-and-practices.md)** | Pools, lanes, stages. Full example. Comments and annotations. Reuse and BPMN compatibility. Good practices. |
+| --- | --- |
+| [Part 1 - Basics](01-basics.md) | `collab`, basic shapes, simple `=>` connections, PascalCase identifiers, `@do` as placeholder |
+| [Part 2 - Optional codes and flows](02-optional-codes-and-flows.md) | optional event/task/gateway codes, `=>d`, `->`, `.>` |
+| [Part 3 - Expressions and DMN](03-expressions-and-dmn.md) | `@do`, `@dmn`, `@call`, DMN-like routing syntax |
+| [Part 4 - Organization and practices](04-organization-and-practices.md) | participant-like grouping, lanes, stage-like authoring structure, comments, reuse guidance |
 
 ---
 
 ## At a glance
 
-- **Basics:** `collab Name` → elements `()` `[]` `<>` `{}` with PascalCase names → connect with `=>` (indented under each element). Default flow from gateway = first in text.
-- **Optional:** Add codes `(s)`, `[u]`, `<x>`, `{d}` etc.; add `=>d`, `->`, `.>` when needed.
-- **Expressions:** `@do` (placeholder or `@do.exec` etc.), `@dmn` (gateway), `@call` (call activity). Only on the element, not on the arrow.
-- **Structure:** Optional `==` pool, `--` lane, `||` stage. Default = one implicit of each if not declared; once you declare a level, every element must lie inside some container of that level (see Part 4).
+- **Start a collaboration:** `collab Name`
+- **Basic node forms:** `()` `[]` `<>` `{}`
+- **Basic connection:** `=>`
+- **Optional connection forms:** `=>d`, `->`, `.>`
+- **Optional commands:** `@do`, `@dmn`, `@call`
+- **Optional structure:** `==`, `--`, `||`
 
-Start with [Part 1](01-basics.md) for a detailed introduction to the simplest concepts.
+---
+
+## Important distinction
+
+The notation guide may use compact authoring forms such as `collab`, `==`, or `||`, but canonical semantics should still be interpreted through BPMN-aligned concepts such as:
+
+- `DoglFile`
+- `Collaboration`
+- `Participant`
+- `Process`
+- `LaneSet`
+- `Lane`
+- `FlowNode`
+- `SequenceFlow`
+- `MessageFlow`
+
+DOGL-specific constructs such as stage-like or quadrant-like grouping should be treated as explicit extensions rather than as BPMN-native canonical types.
+
+---
+
+## Quick reference
+
+Use the [cheat sheet](cheat-sheet.md) for the compressed version of the notation.

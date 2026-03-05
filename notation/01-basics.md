@@ -1,75 +1,103 @@
-# Part 1 — Simple concepts (basics)
+# Part 1 - Basics
 
-Read this first. No codes, no expressions — only the core ideas. Complexity increases in later parts.
+Read this first. This part introduces the simplest surface syntax of DOGL.
 
-**See also:** [Index (DSL_syntax.md)](DSL_syntax.md) · [Cheat sheet](cheat-sheet.md) · [Quick start](QUICK_START.md)
-
----
-
-## What DOGL is
-
-DOGL describes **processes**, **orchestration**, **integrations**, and **data flows** in plain text — including who does what and how information is exchanged. The scope also extends to **adapters**, **data transfer**, **message broker management**, **data storage**, and similar topics (some of these are not yet documented in the guide). Readable, diff-friendly, editable in any editor, versionable in git. A file can contain **one or more** collabs. For diagram-only models this part is enough; everything else is optional.
+**See also:** [Index](DSL_syntax.md) · [Cheat sheet](cheat-sheet.md)
 
 ---
 
-## File start: collab
+## What this part covers
 
-A **collab** is introduced with **`collab`** and a name:
+This part explains the **surface notation** only:
+
+- `collab`
+- the four basic shapes
+- simple `=>` connections
+- PascalCase identifiers
+- `@do` as a non-executable placeholder
+
+This part does **not** define the canonical semantic model. Internally, DOGL lowers syntax-facing structures into BPMN-aligned semantic concepts such as `Collaboration`, `Participant`, `Process`, `FlowNode`, and `SequenceFlow`.
+
+---
+
+## File start: `collab`
+
+A DOGL source starts a collaboration block with `collab`:
 
 ```dogl
 collab ProcessName
 ```
 
-You can have **several `collab`** in one file; each starts a new collab. Use a name that identifies the process or process group (e.g. `OrderProcess`, `Onboarding`). All elements and flows that follow belong to this collab until the next `collab` or end of file.
-
-**In the AST**, a collab contains a set of **Pools** (and their lanes, stages, and elements). If you don’t declare any pool (Part 4), the collab has one **implicit** pool; that pool has one implicit lane and one implicit stage, so you can write elements directly under the collab.
+One file may contain multiple `collab` blocks. At the semantic level, these lower into one or more `Collaboration` instances inside `DoglFile`.
 
 ---
 
-## Four elements (no codes)
+## Four basic shapes
 
-In the basic notation you use **only the shape** — no letters inside. The meaning comes from the symbol:
+At the syntax level, the simplest shapes are:
 
-| Symbol | Element  | Meaning |
-|--------|----------|---------|
-| `()`   | **Event**   | Something that happens. Type is inferred: no incoming flow = **start**; no outgoing = **end**; otherwise **intermediate**. |
-| `[]`   | **Task**    | Work to be done. A generic task (no subtype). |
-| `<>`   | **Gateway** | Splits or merges the flow. Default is **OR** (inclusive: one or more paths can be taken). |
-| `{}`   | **Artifact**| Data or document used in the process. |
+| Symbol | Surface meaning | Semantic direction |
+| --- | --- | --- |
+| `()` | Event | Lowers to an event-shaped `FlowNode` |
+| `[]` | Task | Lowers to an activity-shaped `FlowNode` |
+| `<>` | Gateway | Lowers to a gateway-shaped `FlowNode` |
+| `{}` | Artifact-like item | Lowers to an artifact or data-related structure depending on later typing |
 
-You write the symbol followed by the **element name** (identifier), e.g. `() Start`, `[] ReviewOrder`, `<> CheckAmount`, `{} OrderData`. Names should be in **PascalCase** (e.g. `ReviewOrder`, not `review_order`).
+Examples:
 
----
+- `() Start`
+- `[] ReviewOrder`
+- `<> CheckAmount`
+- `{} OrderData`
 
-## Connecting elements: flows (basics)
-
-To show that control passes from one element to another, use the **sequence flow** arrow: **`=>`**.
-
-**Rules:**
-
-1. Write each flow on a **new line**, **indented** under the element it comes from.
-2. After `=>` write **only the name** of the target element (e.g. `=> ReviewOrder`). Do not repeat the element type.
-3. **Default flow** from a gateway: if you don’t mark one explicitly, the **first** outgoing flow in the text is treated as the default. In basics you don’t need a special symbol for that.
-
-Every element you reference in a flow must be **declared** in the same pool (with its symbol and name). If you don’t declare pools, the collab has one implicit pool (and one implicit lane and stage), so everything belongs to that pool. **Sequence flow** (`=>`) cannot cross pools — BPMN allows it only within one pool; cross-pool is message flow (`->`, see Part 2). End events have no outgoing flows.
+Identifiers should use **PascalCase**.
 
 ---
 
-## Element identifiers: PascalCase
+## Basic connections: `=>`
 
-Use **PascalCase** for all element names: `Start`, `ReviewOrder`, `CheckAmount`, `ApproveOrder`. This keeps names consistent and easy to read in flows.
+In the basic notation, `=>` means a process-internal connection:
+
+```dogl
+() Start
+    => ReviewOrder
+```
+
+Rules:
+
+1. Write each outgoing connection on a new indented line under the source node.
+2. Use only the target identifier after the arrow.
+3. In the simplest reading, the first gateway branch is treated as the default if nothing more explicit is written.
+
+At the semantic level, this kind of connection lowers to `SequenceFlow` inside a `Process`.
 
 ---
 
-## Behavior placeholder: @do
+## About structure in this part
 
-You can attach a short note to an element with **`@do`** and some text, e.g. `@do check amount`. This is a **placeholder** for future executable behavior: it documents intent but **does not execute**. To make behavior executable later, you add a qualifier (e.g. `@do.exec: ...`) or, at a gateway, a DMN table (Part 3).
+This part intentionally stays flat. Later parts introduce optional surface syntax for participant and lane organization.
+
+Important distinction:
+
+- syntax may allow compact authoring conveniences;
+- canonical semantics still normalize into BPMN-aligned types;
+- DOGL-only concepts such as stage-like or quadrant-like grouping, if retained, are extensions rather than core BPMN semantic structure.
 
 ---
 
-## Full example (basics only)
+## Placeholder behavior: `@do`
 
-Here is a complete process using only what we’ve described: collab, four shapes without codes, and `=>` flows. The gateway has two outgoing flows; the first is the default.
+`@do` with plain text is a placeholder for intent, not executable behavior:
+
+```dogl
+[] ReviewOrder @do check amount
+```
+
+This is documentation-oriented syntax at this stage. It should not be read as proof that execution semantics already exist in the core platform.
+
+---
+
+## Example
 
 ```dogl
 collab OrderProcess
@@ -86,4 +114,8 @@ collab OrderProcess
 () End
 ```
 
-**Next:** [Part 2 — Optional codes and flows](02-optional-codes-and-flows.md) (event/task/gateway/artifact codes; default flow, message flow, data association).
+This example is about surface syntax. A later phase of the platform resolves it into a BPMN-aligned semantic model.
+
+---
+
+**Next:** [Part 2 - Optional codes and flows](02-optional-codes-and-flows.md)

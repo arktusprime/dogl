@@ -1,73 +1,89 @@
 # DOGL
 
-**Dynamic Orchestration Graph Language** — an open language for **business processes** and **orchestration programs**, from **RPA** to **Hyperautomation hub**. DOGL describes processes, orchestration, integrations, and data flows (control flow and information exchange). The scope also includes adapters, data transfer, message broker management, data storage, and related concepts — not all parts are documented in the notation guide yet. BPMN 2.0–compatible and extensible.
+**Dynamic Orchestration Graph Language** is a library-first platform for describing orchestration definitions in plain text.
 
-**Status:** This project is **in active development** (version **0.0.0**). The notation and API are not stable yet; the parser, AST, and BPMN export/import are being implemented. Use with caution and check the [roadmap](rd/roadmap.md) and [tasks](rd/tsks.md) for current scope.
+The current architectural direction is:
 
-![DOGL mascot — Beagle](assets/dogl-mascot.png)
+- a human-readable `.dogl` source format;
+- a syntax-facing language front end with source fidelity and diagnostics;
+- a BPMN-aligned semantic model;
+- validation, machine-readable interchange, and BPMN adapters around a stable core;
+- embeddable language, render, and editor surfaces as the platform grows.
 
-Process files use the **.dogl** extension.
+## Status
+
+The project is in early development (`0.0.0`).
+
+The current priority is architectural convergence:
+
+- repository and crate structure;
+- syntax and semantic boundaries;
+- BPMN-aligned AST and semantic-domain structures;
+- stable contracts for later parsing, validation, rendering, and import/export work.
+
+Runtime, execution, hyperautomation, and broad integration concerns remain future extension areas rather than the current architectural center.
+
+![DOGL mascot - Beagle](assets/dogl-mascot.png)
 
 ## Quick start
 
-No codes, no expressions — just shapes and flows. Four shapes: `()` event, `[]` task, `<>` gateway, `{}` artifact. Connect with `=>` on an indented line under each element. Names in **PascalCase**.
-
+At the surface-syntax level, a simple DOGL file can look like this:
 
 ```dogl
 collab HelloProcess
 
 () Start
-    => Task
-[] Task
+    => Review
+[] Review
     => End
 () End
 ```
 
-*Same process — text (above) and diagram (below) are equivalent.*
+This is syntax, not the canonical semantic model.
 
-![DOGL simple process 1](assets/simple1.jpg)
+Inside the platform, syntax-facing structures are lowered into a BPMN-aligned semantic shape built around concepts such as:
 
-Save as `.dogl`. **More:** [notation/](notation/).
+- `DoglFile`
+- `Collaboration`
+- `Participant`
+- `Process`
+- `FlowNode`
+- `SequenceFlow`
+- `MessageFlow`
 
-[Cheat sheet](notation/cheat-sheet.md).
+See:
+
+- [notation/DSL_syntax.md](notation/DSL_syntax.md) for the notation guide;
+- [rd/arch/design88.md](rd/arch/design88.md) for project structure;
+- [rd/arch/arch88.md](rd/arch/arch88.md) for architecture;
+- [rd/arch/design88-1-AST.md](rd/arch/design88-1-AST.md) for the BPMN-aligned AST and semantic structure.
 
 ## Why DOGL
 
-- **Human-friendly, git-friendly, no-code / low-code** — Plain text, readable by analysts; version and review as code; start with shapes and flows only, add detail when needed.
-- **Machine-friendly and AI-friendly** — Easy to parse, unambiguous structure (AST); convenient for tools, runtimes, and AI (analysis, generation, refactoring).
-- **Graph-based** — Processes are directed graphs (nodes = elements, edges = flows). This model is a well-established foundation for workflow control flow and verification (e.g. Petri nets, workflow nets, BPMN); DOGL is aligned with it and supports validation and export to diagrams.
-- **One source, many uses** — Same `.dogl` file for diagrams, validation, execution, and integration; single JSON AST for Rust, Python, JS, Java, C#.
-- **Analyst-first** — Designed so analysts can write and change processes without heavy tools; comments, traceability, and optional complexity (basics without codes, then optional codes and expressions).
-- **Extensible** — From simple flows to DMN decisions, call activities, and (planned) adapters, data transfer, and message brokers.
-- **Git-diff friendly** — Plain text and clear structure give readable, reviewable diffs; process changes are easy to track and approve in pull requests.
+- **Readable source**: plain-text process definitions that are easier to review and diff than large XML artifacts.
+- **Library-first architecture**: the primary product is an embeddable platform, not a monolithic application.
+- **Clear semantic layering**: syntax-facing structures, semantic lowering, validation, and adapters are treated as separate concerns.
+- **BPMN-aligned core**: the semantic model uses BPMN-valid concepts where BPMN provides the right meaning.
+- **Extensible platform direction**: rendering, editor capabilities, bindings, import/export, and future runtime work can grow around the same core.
 
-## Portable process logic
+## Current platform shape
 
-DOGL is a **notation that makes process logic portable between systems**. One `.dogl` source can be validated, rendered as a diagram, and exported to **BPMN 2.0** — so the same process can run on **Camunda**, **Flowable**, **Bizagi**, **jBPM**, **Bonita**, or any BPMN-compatible engine. You design in a single, human-friendly format; you choose (or change) the execution platform without rewriting the process.
+The intended project structure is converging toward:
 
-## Fast deployment: processes in a separate repo
+- `dogl-language` for the embeddable language core;
+- `dogl-render` for the embeddable render core;
+- `dogl-editor` for the embeddable editor core;
+- `dogl-adapters` for BPMN and other external integrations;
+- additional delivery surfaces such as CLI, WASM, and bindings.
 
-A **dedicated repo for process definitions** pays off when the format is **readable and diff-friendly** — otherwise you get a repo full of XML that nobody wants to edit or review. DOGL gives you plain-text `.dogl` files: analysts and process owners edit in the repo, and changes produce **clear, minimal diffs** that are easy to review and approve. That's what makes the separate-repo pattern work:
+Not every host application will need every part. The architecture is designed so consumers can embed only the layers they need.
 
-- Edit `.dogl`; changes go through normal code review (git diff shows exactly what changed).
-- CI builds BPMN (or your engine’s format) and publishes to your BPM engine; no need to redeploy the rest of the stack.
-- Shorter cycle for process updates: fix a step, add a branch, or tune a decision — ship the process, not the whole system.
+## Scope notes
 
-**DOGL + separate repo** = readable, versioned source that feeds your BPM engine. Use it with your BPM system to get portable logic and fast, low-risk process deployments.
+DOGL may eventually support broader workflow and automation scenarios, but the current documentation and implementation work should be read through this rule:
 
-## Technical
-
-- BPMN 2.0 concepts (events, tasks, gateways, flows); DMN for decisions
-- Fast, predictable Rust parser; single JSON AST for Python, JS, Java, C#, Rust
-
-## Usage (Rust)
-
-```rust
-use dogl::parse;
-
-let source = std::fs::read_to_string("process.dogl")?;
-let ast = parse(&source)?;
-```
+- the authoritative current scope is the library platform and its semantic foundations;
+- future runtime, orchestration, and hyperautomation capabilities are extension tracks, not proof that those parts are already implemented.
 
 ## License
 
