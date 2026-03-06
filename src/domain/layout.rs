@@ -1,12 +1,15 @@
-//! **Layout group** (domain): bounds `{ x, y, w, h }` for diagram positioning. Data only; no layout calculation.
+//! **Layout** (domain): bounds `{ x, y, w, h }` for diagram positioning. Data only; no layout calculation.
 //!
 //! Covers:
 //! - **Elements** (Event, Task, Gateway, Artifact) — shape position per uid.
 //! - **Pool, Lane, Stage** — each has a uid; their bounds are stored in the same map for BPMN diagram layout (BPMNDI).
 //!
-//! **Grouped representation:** In the `.dogl` file the layout section is scoped to the collab and grouped by pool.
-//! [`LayoutGroupedByPool`] and [`PoolLayoutData`] model that structure (id-based). Convert to/from flat [`Layout`]
-//! (uid-based) via [`crate::domain::collab::layout_from_grouped`] and [`crate::domain::collab::layout_to_grouped`].
+//! In the `.dogl` file bounds are **inline** (optional `{ x y w h }` after each entity). If omitted, auto-placement
+//! is used (algorithm defined by the tool). The parser fills flat [`Layout`] (uid-based) directly from inline bounds.
+//!
+//! **Grouped representation:** [`LayoutGroupedByPool`] and [`PoolLayoutData`] are used for serialization (e.g. JSON AST)
+//! and for converting to/from formats that use pool-scoped, id-based layout. Convert via
+//! [`crate::domain::collab::layout_from_grouped`] and [`crate::domain::collab::layout_to_grouped`].
 //! Create via `Layout::default()` only (review1 §2.4).
 
 use std::collections::HashMap;
@@ -33,7 +36,7 @@ impl Layout {
 }
 
 /// Layout data for one pool: bounds for the pool shape, each lane, each stage, and each element (by id).
-/// Mirrors the structure of the layout section in `.dogl` (grouped by pool).
+/// Used for serialization (e.g. JSON) and conversion; `.dogl` uses inline bounds per entity.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PoolLayoutData {
     /// Bounds of the pool participant shape.
@@ -46,7 +49,7 @@ pub struct PoolLayoutData {
     pub elements: HashMap<ElementId, Bounds>,
 }
 
-/// Layout section grouped by pool (pool id → per-pool layout). Used at parser/export boundary for `.dogl` and JSON.
+/// Layout grouped by pool (pool id → per-pool layout). Used for serialization (e.g. JSON) and import/export.
 pub type LayoutGroupedByPool = HashMap<PoolId, PoolLayoutData>;
 
 #[cfg(test)]

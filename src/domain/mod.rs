@@ -1,5 +1,5 @@
 //! **Domain** — core: types and value objects (DoglFile, Collab, Pool, Lane, Stage, Element, Flow, Dmn, Layout).
-//! No dependencies on parser, JSON, BPMN. See rd/arch/architecture.md.
+//! No dependencies on parser, JSON, or BPMN adapters; this layer owns the core semantic model.
 
 mod error;
 mod value_objects;

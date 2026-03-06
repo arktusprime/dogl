@@ -51,8 +51,9 @@ impl Collab {
     }
 }
 
-/// Builds a flat Layout (uid → bounds) from the grouped layout section. Fails if any id in the grouped
+/// Builds a flat Layout (uid → bounds) from grouped layout data. Fails if any id in the grouped
 /// data does not exist in the collab (unknown pool, lane, stage, or element id).
+/// Used when loading layout from JSON or other formats that use grouped, id-based layout.
 pub fn layout_from_grouped(collab: &Collab, g: &LayoutGroupedByPool) -> Result<Layout, DomainError> {
     let mut layout = Layout::default();
     for (pool_id, data) in g {
@@ -103,7 +104,7 @@ pub fn layout_from_grouped(collab: &Collab, g: &LayoutGroupedByPool) -> Result<L
 }
 
 /// Builds the grouped layout (by pool, id-based) from the flat Layout and collab structure.
-/// Used when serializing to `.dogl` or JSON.
+/// Used when serializing to JSON or other formats; `.dogl` export emits inline bounds per entity.
 pub fn layout_to_grouped(collab: &Collab, layout: &Layout) -> LayoutGroupedByPool {
     let mut out = HashMap::new();
     for pool in &collab.pools {
