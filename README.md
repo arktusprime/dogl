@@ -51,12 +51,9 @@ Inside the platform, syntax-facing structures are lowered into a BPMN-aligned se
 - `SequenceFlow`
 - `MessageFlow`
 
-See:
+See [notation/DSL_syntax.md](notation/DSL_syntax.md) for the notation guide.
 
-- [notation/DSL_syntax.md](notation/DSL_syntax.md) for the notation guide;
-- [rd/arch/design88.md](rd/arch/design88.md) for project structure;
-- [rd/arch/arch88.md](rd/arch/arch88.md) for architecture;
-- [rd/arch/design88-1-AST.md](rd/arch/design88-1-AST.md) for the BPMN-aligned AST and semantic structure.
+This README describes the current platform direction, layering, and BPMN-aligned semantic concepts at a repository level.
 
 ## Why DOGL
 

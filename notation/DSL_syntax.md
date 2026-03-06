@@ -2,12 +2,9 @@
 
 This guide explains the **surface syntax** of DOGL.
 
-It is intentionally distinct from the canonical semantic model described in:
+It is intentionally distinct from the canonical semantic model used by the platform.
 
-- `rd/arch/arch88.md`
-- `rd/arch/design88-1-AST.md`
-
-Read the notation guide for authoring syntax. Read the architecture documents for BPMN-aligned semantic structure and ownership rules.
+Read the notation guide for authoring syntax. Interpret those forms through the BPMN-aligned semantic concepts and ownership boundaries used by the core model.
 
 ---
 
