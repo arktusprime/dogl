@@ -4,9 +4,14 @@
 //! locations, syntax nodes, and parse-time diagnostics.
 
 mod diagnostics;
+mod nodes;
 mod source;
-mod tree;
+mod tokens;
 
-pub use diagnostics::{ParseDiagnostic, ParseDiagnosticSeverity};
+pub use diagnostics::{ParseDiagnostic, ParseDiagnosticMetadata, ParseDiagnosticSeverity};
+pub use nodes::{
+    RecoveryKind, RecoveryNode, SyntaxDocument, SyntaxKind, SyntaxNode, SyntaxNodeId, TokenRange,
+    UnresolvedName, UnresolvedNameKind,
+};
 pub use source::{SourceFile, SourcePosition, Span};
-pub use tree::{SyntaxDocument, SyntaxKind, SyntaxNode, TokenKind, TokenSpan, TriviaKind};
+pub use tokens::{SyntaxToken, SyntaxTrivia, SyntaxTriviaKind, TokenKind, TriviaRange};
