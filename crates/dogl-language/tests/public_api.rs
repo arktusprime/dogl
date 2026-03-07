@@ -1,5 +1,9 @@
 use dogl_language::{
     export_bpmn, import_bpmn, parse, to_json, validate, ApplicationError, domain::DoglFile,
+    resolver::{
+        BindingSummary, LoweredSemanticFile, NameResolutionSummary, NormalizationPass,
+        ResolverDiagnostic, ResolverDiagnosticSeverity, ResolverOutput,
+    },
     syntax::{
         ParseDiagnostic, ParseDiagnosticSeverity, RecoveryKind, RecoveryNode, SourcePosition, Span,
         SyntaxDocument, SyntaxKind, SyntaxNode, SyntaxNodeId, SyntaxToken, SyntaxTrivia,
@@ -30,6 +34,49 @@ fn import_bpmn_reuses_parse_placeholder_shape() {
     assert!(output.syntax.nodes.is_empty());
     assert!(output.syntax.root.is_none());
     assert!(output.semantic_file.is_none());
+}
+
+#[test]
+fn parse_facade_keeps_resolver_stages_explicit() {
+    let output = parse("collab Example");
+
+    assert_eq!(output.resolver, ResolverOutput::default());
+    assert_eq!(output.resolver.bindings, BindingSummary::default());
+    assert_eq!(output.resolver.resolution, NameResolutionSummary::default());
+    assert!(output.resolver.normalization_passes.is_empty());
+    assert_eq!(output.resolver.lowering, LoweredSemanticFile::default());
+    assert!(output.resolver.lowering.semantic_file.is_none());
+    assert!(output.resolver.diagnostics.is_empty());
+}
+
+#[test]
+fn resolver_contracts_preserve_stage_specific_placeholder_data() {
+    let normalization = NormalizationPass::new("canonicalize_names");
+    let diagnostic = ResolverDiagnostic::new(
+        ResolverDiagnosticSeverity::Warning,
+        "placeholder resolver diagnostic",
+    );
+    let output = ResolverOutput {
+        bindings: BindingSummary {
+            bound_names: 2,
+            unresolved_names: 1,
+        },
+        resolution: NameResolutionSummary {
+            resolved_references: 3,
+            unresolved_references: 1,
+        },
+        normalization_passes: vec![normalization.clone()],
+        lowering: LoweredSemanticFile { semantic_file: None },
+        diagnostics: vec![diagnostic.clone()],
+    };
+
+    assert_eq!(output.bindings.bound_names, 2);
+    assert_eq!(output.bindings.unresolved_names, 1);
+    assert_eq!(output.resolution.resolved_references, 3);
+    assert_eq!(output.resolution.unresolved_references, 1);
+    assert_eq!(output.normalization_passes, vec![normalization]);
+    assert!(output.lowering.semantic_file.is_none());
+    assert_eq!(output.diagnostics, vec![diagnostic]);
 }
 
 #[test]

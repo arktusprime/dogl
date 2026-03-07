@@ -1,4 +1,5 @@
-/// Placeholder diagnostics emitted by name resolution and lowering.
+/// Placeholder diagnostics emitted during resolver-owned stages after parsing
+/// and before semantic validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolverDiagnostic {
     pub severity: ResolverDiagnosticSeverity,
