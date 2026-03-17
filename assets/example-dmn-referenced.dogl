@@ -3,7 +3,7 @@ collab OrderWithDmnRef
 (s) Start
     => RouteOrder
 
-<x> RouteOrder @dmn: "OrderRoutingTable"
+<x> RouteOrder [dmn] OrderRoutingTable
     =>d ManualReview
 
 [] HighValueReview

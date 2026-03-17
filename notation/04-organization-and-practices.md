@@ -84,9 +84,58 @@ These are syntax-facing documentation constructs and should remain available for
 
 ---
 
+## Layout modes
+
+DOGL supports two layout authoring modes:
+
+1. Inline bounds after a pool, lane, stage, or flow object.
+2. A bottom-of-file `layout` block.
+
+Inline mode is compact and keeps geometry close to the object:
+
+```dogl
+collab OrderProcess
+    == MainPool {0 0 600 320}
+        -- Ops {0 40 600 80}
+            || Default {120 0 180 320}
+                (s) Start {80 140 36 36}
+                [] Review {180 132 100 52}
+                <x> Route {340 136 50 50}
+                (e) Done {460 140 36 36}
+```
+
+Bottom `layout` mode separates geometry from the main flow while reusing the same markers:
+
+```dogl
+collab OrderProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Review
+                [] Review
+                    => Route
+                <x> Route
+                    => Done
+                (e) Done
+
+layout
+    == MainPool {0 0 600 320}
+        -- Ops {0 40 600 80}
+            || Default {120 0 180 320}
+                (s) Start {80 140 36 36}
+                [] Review {180 132 100 52}
+                <x> Route {340 136 50 50}
+                (e) Done {460 140 36 36}
+```
+
+Both forms should lower into the same semantic layout model. The `layout` block is a source-authoring alternative, not a second semantic AST.
+
+---
+
 ## Reuse and BPMN compatibility
 
-`@call` on a `[call]` task is the closest notation form to BPMN `CallActivity`.
+`[call] ProcessName` is the notation form closest to BPMN `CallActivity`.
 
 For reuse beyond that:
 

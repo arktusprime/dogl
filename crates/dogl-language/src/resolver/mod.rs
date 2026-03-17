@@ -13,6 +13,6 @@ mod resolution;
 
 pub use binding::BindingSummary;
 pub use diagnostics::{ResolverDiagnostic, ResolverDiagnosticSeverity};
-pub use lowering::{LoweredSemanticFile, ResolverOutput};
+pub use lowering::{resolve, LoweredSemanticFile, ResolverOutput};
 pub use normalization::NormalizationPass;
 pub use resolution::NameResolutionSummary;

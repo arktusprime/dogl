@@ -23,7 +23,7 @@ pub use flow::Flow;
 pub use dmn::{Dmn, DmnRule};
 pub use layout::{Layout, LayoutGroupedByPool, PoolLayoutData};
 pub use pool::{Lane, Pool, Quadrant, Stage};
-pub use collab::Collab;
+pub use collab::{layout_from_grouped, layout_to_grouped, Collab};
 pub use dogl_file::DoglFile;
 pub use error::DomainError;
 pub use traits::{ElementVariant, HasExpressions, Identifiable};

@@ -153,7 +153,7 @@ impl SchemaVersion {
     }
 }
 
-/// Expression attached to an element (e.g. @do, @do.exec, @dmn, @call). Domain stores only key and value.
+/// Expression attached to an element (e.g. `[do]`, `[do.exec]`, `[dmn]`). Domain stores only key and value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expression {
     pub key: String,

@@ -31,13 +31,19 @@ pub struct SyntaxNode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SyntaxKind {
     File,
-    Collaboration,
-    Participant,
-    Process,
-    Statement,
-    Comment,
-    Attribute,
-    Block,
+    Collab,
+    LayoutSection,
+    Pool,
+    Lane,
+    Stage,
+    Event,
+    Task,
+    Gateway,
+    Flow,
+    Expression,
+    Bounds,
+    Identifier,
+    StringLiteral,
     Unknown,
 }
 
@@ -127,8 +133,34 @@ impl SyntaxDocument {
         self.nodes.get(id.0)
     }
 
+    pub fn node_mut(&mut self, id: SyntaxNodeId) -> Option<&mut SyntaxNode> {
+        self.nodes.get_mut(id.0)
+    }
+
     pub fn root_node(&self) -> Option<&SyntaxNode> {
         self.root.and_then(|id| self.node(id))
+    }
+
+    pub fn push_token(&mut self, token: SyntaxToken) -> usize {
+        let idx = self.tokens.len();
+        self.tokens.push(token);
+        idx
+    }
+
+    pub fn push_trivia(&mut self, trivia: SyntaxTrivia) -> usize {
+        let idx = self.trivia.len();
+        self.trivia.push(trivia);
+        idx
+    }
+
+    pub fn push_node(&mut self, node: SyntaxNode) -> SyntaxNodeId {
+        let id = SyntaxNodeId(self.nodes.len());
+        self.nodes.push(node);
+        id
+    }
+
+    pub fn set_root(&mut self, root: SyntaxNodeId) {
+        self.root = Some(root);
     }
 
     pub fn comments(&self) -> impl Iterator<Item = &SyntaxTrivia> {
@@ -172,6 +204,10 @@ impl SyntaxNode {
     pub fn with_children(mut self, children: impl Into<Vec<SyntaxNodeId>>) -> Self {
         self.children = children.into();
         self
+    }
+
+    pub fn push_child(&mut self, child: SyntaxNodeId) {
+        self.children.push(child);
     }
 
     pub fn mark_recovered(mut self) -> Self {

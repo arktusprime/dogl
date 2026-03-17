@@ -19,7 +19,7 @@ pub struct Collab {
     pub pools: Vec<Pool>,
     /// Cross-pool message flows (->).
     pub message_flows: Vec<Flow>,
-    /// Standalone DMN decision tables referenced by gateways via @dmn: "Id".
+    /// Standalone DMN decision tables referenced by gateways via `[dmn] DecisionName`.
     pub dmn_blocks: Vec<Dmn>,
     /// Optional layout data (bounds keyed by entity uid).
     pub layout: Option<Layout>,

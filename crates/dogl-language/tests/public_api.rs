@@ -1,5 +1,6 @@
 use dogl_language::{
     export_bpmn, import_bpmn, parse, to_json, validate, ApplicationError, domain::DoglFile,
+    domain::{Element, GatewayCode, TaskCode},
     resolver::{
         BindingSummary, LoweredSemanticFile, NameResolutionSummary, NormalizationPass,
         ResolverDiagnostic, ResolverDiagnosticSeverity, ResolverOutput,
@@ -11,42 +12,330 @@ use dogl_language::{
     },
 };
 
-#[test]
-fn parse_facade_returns_placeholder_layers() {
-    let output = parse("collab Example");
+const VALID_CALL_ACTIVITY: &str = r#"collab RefundProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => ChildProcess
+                [call] ChildProcess
+                    => Done
+                (e) Done
+"#;
 
-    assert_eq!(output.syntax.source.text, "collab Example");
-    assert!(output.syntax.tokens.is_empty());
-    assert!(output.syntax.nodes.is_empty());
+const VALID_DO_INLINE_COMMAND: &str = r#"collab CommandProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] ReviewOrder [do] check amount
+                    => Done
+                (e) Done
+"#;
+
+const VALID_DO_EXEC_COMMAND_BLOCK: &str = r#"collab CommandProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] ReviewOrder
+                    [do.exec] validateOrder(order.id)
+                    => Done
+                (e) Done
+"#;
+
+const VALID_GATEWAY_DMN_COMMAND: &str = r#"collab DecisionProcess
+    == MainPool
+        -- Ops
+            || Default
+                <x> RouteOrder [dmn] OrderRouting
+                    => Done
+                (e) Done
+"#;
+
+const INVALID_BARE_TASK: &str = r#"collab SimpleProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Review
+                Review
+                    => Done
+                (e) Done
+"#;
+
+const VALID_GATEWAY_SYNTAX: &str = r#"collab GatewayProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Route
+                <x> Route
+                    => Done
+                (e) Done
+"#;
+
+const VALID_COMMENT_SYNTAX: &str = r#"// file comment
+collab CommentedProcess // collab comment
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Done // flow comment
+                (e) Done
+"#;
+
+const INLINE_LAYOUT_SOURCE: &str = r#"collab LayoutProcess
+    == MainPool {0 0 600 320}
+        -- Ops {0 40 600 80}
+            || Default {120 0 180 320}
+                (s) Start {80 140 36 36}
+                    => Review
+                [] Review {180 132 100 52}
+                    => Route
+                <x> Route {340 136 50 50}
+                    => Done
+                (e) Done {460 140 36 36}
+"#;
+
+const BOTTOM_LAYOUT_SOURCE: &str = r#"collab LayoutProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Review
+                [] Review
+                    => Route
+                <x> Route
+                    => Done
+                (e) Done
+
+layout
+    == MainPool {0 0 600 320}
+        -- Ops {0 40 600 80}
+            || Default {120 0 180 320}
+                (s) Start {80 140 36 36}
+                [] Review {180 132 100 52}
+                <x> Route {340 136 50 50}
+                (e) Done {460 140 36 36}
+"#;
+
+#[test]
+fn parse_returns_populated_layers_for_valid_call_activity_input() {
+    let output = parse(VALID_CALL_ACTIVITY);
+
+    assert_eq!(output.syntax.source.text, VALID_CALL_ACTIVITY);
+    assert!(!output.syntax.tokens.is_empty());
+    assert!(!output.syntax.nodes.is_empty());
+    assert!(output.syntax.root.is_some());
     assert!(output.syntax.trivia.is_empty());
-    assert!(output.syntax.unresolved_names.is_empty());
-    assert!(output.syntax.recoveries.is_empty());
     assert!(output.syntax.diagnostics.is_empty());
-    assert!(output.semantic_file.is_none());
+
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    assert_eq!(semantic_file.collabs.len(), 1);
+    let collab = &semantic_file.collabs[0];
+    assert_eq!(collab.id, "RefundProcess");
+    assert_eq!(collab.pools.len(), 1);
+
+    let pool = &collab.pools[0];
+    assert_eq!(pool.sequence_flows.len(), 2);
+    let call_task = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Task(task) if task.id == "ChildProcess" => Some(task),
+            _ => None,
+        })
+        .expect("call task");
+    assert_eq!(call_task.code, TaskCode::CallActivity);
+    assert_eq!(call_task.call_target.as_deref(), Some("ChildProcess"));
+    assert!(call_task.expressions.is_empty());
 }
 
 #[test]
-fn import_bpmn_reuses_parse_placeholder_shape() {
+fn parse_accepts_do_inline_command_in_public_api() {
+    let output = parse(VALID_DO_INLINE_COMMAND);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    let pool = &semantic_file.collabs[0].pools[0];
+    let task = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Task(task) if task.id == "ReviewOrder" => Some(task),
+            _ => None,
+        })
+        .expect("task");
+
+    assert_eq!(task.expressions[0].key, "do");
+    assert_eq!(task.expressions[0].value, "check amount");
+}
+
+#[test]
+fn parse_accepts_do_exec_block_command_in_public_api() {
+    let output = parse(VALID_DO_EXEC_COMMAND_BLOCK);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    let pool = &semantic_file.collabs[0].pools[0];
+    let task = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Task(task) if task.id == "ReviewOrder" => Some(task),
+            _ => None,
+        })
+        .expect("task");
+
+    assert_eq!(task.expressions[0].key, "do.exec");
+    assert_eq!(task.expressions[0].value, "validateOrder(order.id)");
+}
+
+#[test]
+fn parse_accepts_gateway_forms_in_public_api() {
+    let output = parse(VALID_GATEWAY_SYNTAX);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    let pool = &semantic_file.collabs[0].pools[0];
+    let gateway = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Gateway(gateway) if gateway.id == "Route" => Some(gateway),
+            _ => None,
+        })
+        .expect("gateway");
+
+    assert_eq!(gateway.code, GatewayCode::Exclusive);
+}
+
+#[test]
+fn parse_accepts_gateway_dmn_command_in_public_api() {
+    let output = parse(VALID_GATEWAY_DMN_COMMAND);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    let pool = &semantic_file.collabs[0].pools[0];
+    let gateway = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Gateway(gateway) if gateway.id == "RouteOrder" => Some(gateway),
+            _ => None,
+        })
+        .expect("gateway");
+
+    assert_eq!(gateway.dmn_ref.as_deref(), Some("OrderRouting"));
+}
+
+#[test]
+fn parse_accepts_slash_comments_in_public_api() {
+    let output = parse(VALID_COMMENT_SYNTAX);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    assert!(output.semantic_file.is_some());
+    assert!(output.syntax.comments().count() >= 2);
+}
+
+#[test]
+fn import_bpmn_reuses_parse_contract_and_exposes_syntax_errors() {
     let output = import_bpmn("<definitions />");
 
     assert_eq!(output.syntax.source.text, "<definitions />");
-    assert!(output.syntax.tokens.is_empty());
-    assert!(output.syntax.nodes.is_empty());
-    assert!(output.syntax.root.is_none());
+    assert!(!output.syntax.tokens.is_empty());
     assert!(output.semantic_file.is_none());
+    assert!(!output.syntax.diagnostics.is_empty());
 }
 
 #[test]
-fn parse_facade_keeps_resolver_stages_explicit() {
-    let output = parse("collab Example");
+fn parse_keeps_resolver_stages_explicit_for_valid_input() {
+    let output = parse(VALID_CALL_ACTIVITY);
 
-    assert_eq!(output.resolver, ResolverOutput::default());
-    assert_eq!(output.resolver.bindings, BindingSummary::default());
-    assert_eq!(output.resolver.resolution, NameResolutionSummary::default());
-    assert!(output.resolver.normalization_passes.is_empty());
-    assert_eq!(output.resolver.lowering, LoweredSemanticFile::default());
-    assert!(output.resolver.lowering.semantic_file.is_none());
+    assert_eq!(output.resolver.bindings.bound_names, 7);
+    assert_eq!(output.resolver.bindings.unresolved_names, 0);
+    assert_eq!(output.resolver.resolution.resolved_references, 2);
+    assert_eq!(output.resolver.resolution.unresolved_references, 0);
+    assert_eq!(
+        output.resolver.normalization_passes,
+        vec![NormalizationPass::new("mvp_lowering")]
+    );
     assert!(output.resolver.diagnostics.is_empty());
+    assert_eq!(output.resolver.lowering.semantic_file, output.semantic_file);
+}
+
+#[test]
+fn parse_rejects_bare_task_syntax_in_public_api() {
+    let output = parse(INVALID_BARE_TASK);
+
+    assert!(output.semantic_file.is_none());
+    assert!(!output.syntax.diagnostics.is_empty());
+}
+
+#[test]
+fn parse_populates_layout_from_inline_bounds_in_public_api() {
+    let output = parse(INLINE_LAYOUT_SOURCE);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    assert!(semantic_file.collabs[0].layout.is_some());
+}
+
+#[test]
+fn parse_populates_layout_from_bottom_layout_block_in_public_api() {
+    let output = parse(BOTTOM_LAYOUT_SOURCE);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    assert!(semantic_file.collabs[0].layout.is_some());
+}
+
+#[test]
+fn parse_surfaces_resolver_errors_for_invalid_call_activity_input() {
+    let output = parse(
+        r#"collab RefundProcess
+    == MainPool
+        -- Ops
+            || Default
+                [call]
+                    => MissingTarget
+"#,
+    );
+
+    assert!(output.semantic_file.is_none());
+    assert!(!output.syntax.diagnostics.is_empty());
+}
+
+#[test]
+fn parse_rejects_legacy_at_commands_in_public_api() {
+    let output = parse(
+        r#"collab LegacyProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] ReviewOrder @do check amount
+                    => RouteOrder
+                <x> RouteOrder @dmn: "OrderRouting"
+                    => ChildProcess
+                [call] ChildProcess @call: "ChildProcess"
+                    => Done
+                (e) Done
+"#,
+    );
+
+    assert!(output.semantic_file.is_none());
+    assert!(!output.syntax.diagnostics.is_empty());
 }
 
 #[test]
@@ -116,9 +405,9 @@ fn syntax_contracts_reserve_source_fidelity_and_recovery_shapes() {
         },
     );
 
-    let comment = SyntaxTrivia::new(SyntaxTriviaKind::Comment, span, "# note");
+    let comment = SyntaxTrivia::new(SyntaxTriviaKind::Comment, span, "// note");
     let whitespace = SyntaxTrivia::new(SyntaxTriviaKind::Whitespace, span, " ");
-    let token = SyntaxToken::new(TokenKind::Keyword, span, "collab")
+    let token = SyntaxToken::new(TokenKind::KeywordCollab, span, "collab")
         .with_leading_trivia(TriviaRange::new(0, 1))
         .with_trailing_trivia(TriviaRange::new(1, 2));
     let unresolved = UnresolvedName::new(UnresolvedNameKind::Reference, "Example").with_span(span);
@@ -129,7 +418,7 @@ fn syntax_contracts_reserve_source_fidelity_and_recovery_shapes() {
         .mark_recovered()
         .with_related_span(span)
         .with_span(span);
-    let node = SyntaxNode::new(SyntaxKind::Collaboration)
+    let node = SyntaxNode::new(SyntaxKind::Collab)
         .with_span(span)
         .with_token_range(TokenRange::new(0, 1))
         .with_text_name("Example")
@@ -146,10 +435,10 @@ fn syntax_contracts_reserve_source_fidelity_and_recovery_shapes() {
         diagnostics: vec![diagnostic.clone()],
     };
 
-    assert_eq!(token.kind, TokenKind::Keyword);
+    assert_eq!(token.kind, TokenKind::KeywordCollab);
     assert_eq!(token.leading_trivia, TriviaRange::new(0, 1));
     assert_eq!(comment.kind, SyntaxTriviaKind::Comment);
-    assert_eq!(comment.text, "# note");
+    assert_eq!(comment.text, "// note");
     assert_eq!(unresolved.kind, UnresolvedNameKind::Reference);
     assert_eq!(recovery.kind, RecoveryKind::IncompleteNode);
     assert_eq!(diagnostic.metadata.code, Some("DOGL0001"));

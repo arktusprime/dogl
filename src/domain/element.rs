@@ -118,6 +118,8 @@ pub struct Task {
     /// Display name; when omitted in .dogl, use `name_from_id(&id)` (review1 §2.5).
     pub name: String,
     pub code: TaskCode,
+    /// Optional called process identifier for `[call] ProcessName`.
+    pub call_target: Option<String>,
     pub expressions: Vec<Expression>,
 }
 
@@ -156,7 +158,7 @@ pub struct Gateway {
     /// Display name; when omitted in .dogl, use `name_from_id(&id)` (review1 §2.5).
     pub name: String,
     pub code: GatewayCode,
-    /// Optional reference to standalone DMN block (e.g. @dmn: "DecisionName").
+    /// Optional reference to standalone DMN block (e.g. `[dmn] DecisionName`).
     pub dmn_ref: Option<String>,
     pub expressions: Vec<Expression>,
 }
@@ -250,6 +252,7 @@ mod tests {
             id: "DoWork".to_string(),
             name: name_from_id("DoWork"),
             code: TaskCode::Generic,
+            call_target: None,
             expressions: vec![Expression::new("do", "run")],
         });
         assert_eq!(el.uid(), uid);

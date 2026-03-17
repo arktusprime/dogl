@@ -1,0 +1,7 @@
+collab DecisionProcess
+    == MainPool
+        -- Ops
+            || Default
+                <x> RouteOrder [dmn] OrderRouting
+                    => Done
+                (e) Done

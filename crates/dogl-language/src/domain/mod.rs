@@ -24,7 +24,7 @@ mod collab;
 #[path = "../../../../src/domain/dogl_file.rs"]
 mod dogl_file;
 
-pub use collab::Collab;
+pub use collab::{layout_from_grouped, layout_to_grouped, Collab};
 pub use dmn::{Dmn, DmnRule};
 pub use dogl_file::DoglFile;
 pub use element::{

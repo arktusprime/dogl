@@ -9,7 +9,7 @@ pub trait Identifiable {
     fn id(&self) -> &ElementId;
 }
 
-/// Entity with an ordered chain of expressions (e.g. @do, @dmn, @call).
+/// Entity with an ordered chain of expressions (e.g. `[do]`, `[dmn]`).
 pub trait HasExpressions {
     fn expressions(&self) -> &[Expression];
 }

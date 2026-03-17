@@ -14,7 +14,7 @@ This part explains the **surface notation** only:
 - the four basic shapes
 - simple `=>` connections
 - PascalCase identifiers
-- `@do` as a non-executable placeholder
+- `[do]` as a non-executable placeholder
 
 This part does **not** define the canonical semantic model. Internally, DOGL lowers syntax-facing structures into BPMN-aligned semantic concepts such as `Collaboration`, `Participant`, `Process`, `FlowNode`, and `SequenceFlow`.
 
@@ -85,12 +85,12 @@ Important distinction:
 
 ---
 
-## Placeholder behavior: `@do`
+## Placeholder behavior: `[do]`
 
-`@do` with plain text is a placeholder for intent, not executable behavior:
+`[do]` with plain text is a placeholder for intent, not executable behavior:
 
 ```dogl
-[] ReviewOrder @do check amount
+[] ReviewOrder [do] check amount
 ```
 
 This is documentation-oriented syntax at this stage. It should not be read as proof that execution semantics already exist in the core platform.

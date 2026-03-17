@@ -12,9 +12,9 @@ Read the notation guide for authoring syntax. Interpret those forms through the 
 
 | Part | Content |
 | --- | --- |
-| [Part 1 - Basics](01-basics.md) | `collab`, basic shapes, simple `=>` connections, PascalCase identifiers, `@do` as placeholder |
+| [Part 1 - Basics](01-basics.md) | `collab`, basic shapes, simple `=>` connections, PascalCase identifiers, `[do]` as placeholder |
 | [Part 2 - Optional codes and flows](02-optional-codes-and-flows.md) | optional event/task/gateway codes, `=>d`, `->`, `.>` |
-| [Part 3 - Expressions and DMN](03-expressions-and-dmn.md) | `@do`, `@dmn`, `@call`, DMN-like routing syntax |
+| [Part 3 - Expressions and DMN](03-expressions-and-dmn.md) | `[do]`, `[dmn]`, `[call]`, DMN-like routing syntax |
 | [Part 4 - Organization and practices](04-organization-and-practices.md) | participant-like grouping, lanes, stage-like authoring structure, comments, reuse guidance |
 
 ---
@@ -25,7 +25,7 @@ Read the notation guide for authoring syntax. Interpret those forms through the 
 - **Basic node forms:** `()` `[]` `<>` `{}`
 - **Basic connection:** `=>`
 - **Optional connection forms:** `=>d`, `->`, `.>`
-- **Optional commands:** `@do`, `@dmn`, `@call`
+- **Optional commands:** `[do]`, `[dmn]`, `[call]`
 - **Optional structure:** `==`, `--`, `||`
 
 ---

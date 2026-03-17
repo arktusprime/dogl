@@ -1,6 +1,6 @@
 use super::source::Span;
 
-/// Placeholder token stream entry for future lexer and parser work.
+/// Token stream entry emitted by the syntax-layer lexer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntaxToken {
     pub kind: TokenKind,
@@ -34,14 +34,53 @@ impl SyntaxToken {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
+    KeywordCollab,
+    KeywordLayout,
+    PoolMarker,
+    LaneMarker,
+    StageMarker,
+    EventMarker,
+    EventStartMarker,
+    EventIntermediateMarker,
+    EventEndMarker,
+    GatewayMarker,
+    GatewayExclusiveMarker,
+    GatewayParallelMarker,
+    TaskMarker,
+    BracketCommand,
+    CommandValue,
+    FlowArrow,
     Identifier,
-    Keyword,
-    Symbol,
-    Literal,
+    StringLiteral,
+    Number,
+    LeftBrace,
+    RightBrace,
     Newline,
     Indent,
     Dedent,
+    Eof,
     Unknown,
+}
+
+impl TokenKind {
+    pub fn is_event_marker(self) -> bool {
+        matches!(
+            self,
+            TokenKind::EventMarker
+                | TokenKind::EventStartMarker
+                | TokenKind::EventIntermediateMarker
+                | TokenKind::EventEndMarker
+        )
+    }
+
+    pub fn is_gateway_marker(self) -> bool {
+        matches!(
+            self,
+            TokenKind::GatewayMarker
+                | TokenKind::GatewayExclusiveMarker
+                | TokenKind::GatewayParallelMarker
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

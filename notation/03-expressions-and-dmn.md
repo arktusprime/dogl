@@ -25,41 +25,41 @@ Expressions attach to element syntax, not to the connection token itself.
 
 Examples:
 
-- `@do`
-- `@dmn`
-- `@call`
-- qualified forms such as `@do.exec`
+- `[do]`
+- `[dmn]`
+- `[call]`
+- qualified forms such as `[do.exec]`
 
 At the semantic level, these should be modeled as explicit expression or integration attachments on semantic nodes, not as ad hoc flow metadata.
 
 ---
 
-## `@do`
+## `[do]`
 
-`@do` is the general notation for intent or behavior attachment.
+`[do]` is the general notation for intent or behavior attachment.
 
 Two important readings:
 
-- `@do text` is a lightweight placeholder and documentation aid;
-- qualified forms such as `@do.exec: ...` are more execution-oriented notation, but they should still be treated as language constructs or extensions rather than proof of a complete runtime engine in the current core.
+- `[do] text` is a lightweight placeholder and documentation aid;
+- qualified forms such as `[do.exec] ...` are more execution-oriented notation, but they should still be treated as language constructs or extensions rather than proof of a complete runtime engine in the current core.
 
 Example:
 
 ```dogl
-[] ReviewOrder @do check amount
-[] ValidateOrder @do.exec: validateOrder(order.id)
+[] ReviewOrder [do] check amount
+[] ValidateOrder [do.exec] validateOrder(order.id)
 ```
 
 ---
 
-## `@dmn`
+## `[dmn]`
 
-`@dmn` links routing logic to an explicit decision definition or decision table.
+`[dmn]` links routing logic to an explicit decision definition or decision table.
 
 Example:
 
 ```dogl
-<x> RouteOrder @dmn: "OrderRouting"
+<x> RouteOrder [dmn] OrderRouting
     =>d ManualReview
 ```
 
@@ -70,14 +70,14 @@ Important architectural rule:
 
 ---
 
-## `@call`
+## `[call]`
 
-`@call` links a call-activity-like element to another process or reusable process definition.
+`[call]` links a call-activity-like element to another process or reusable process definition.
 
 Example:
 
 ```dogl
-[call] RunRefundProcess @call: "RefundProcess"
+[call] RefundProcess
     => Done
 ```
 
@@ -85,27 +85,21 @@ This should be interpreted through BPMN-aligned `CallActivity` semantics rather 
 
 ---
 
-## Qualified `@do.*` forms
+## Qualified `[do.*]` forms
 
 Qualified forms may be used when the notation needs more specific intent.
 
 Examples:
 
-- `@do.exec: ...`
-- `@do.timer: ...`
-- `@do.message: ...`
-- `@do.signal: ...`
-- `@do.error: ...`
-- `@do.timeout: ...`
-- `@do.notify: ...`
+- `[do.exec] ...`
+- `[do.timer] ...`
+- `[do.message] ...`
+- `[do.signal] ...`
+- `[do.error] ...`
+- `[do.timeout] ...`
+- `[do.notify] ...`
 
 These forms are useful as surface notation, but they should be documented as language-level attachments, not as guarantees that all corresponding runtime behaviors already exist in the platform.
-
-Disable a form with `@~`, for example:
-
-```dogl
-@~do.exec: oldHandler()
-```
 
 ---
 
@@ -125,7 +119,7 @@ A gateway may use DMN-like routing syntax either inline or by reference.
 ### Referenced style
 
 ```dogl
-<x> RouteOrder @dmn: "OrderRouting"
+<x> RouteOrder [dmn] OrderRouting
     =>d ManualReview
 
 dmn OrderRouting
@@ -150,6 +144,8 @@ When reading examples in this part, keep the layering clear:
 - resolver and lowering phases interpret them;
 - the semantic model stays BPMN-aligned where BPMN provides the right concept;
 - DOGL-only decision or behavior constructs remain explicit extensions where BPMN has no exact equivalent.
+
+Legacy `@...` forms are not part of the current notation contract.
 
 ---
 

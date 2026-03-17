@@ -1,0 +1,11 @@
+// Process comment
+collab CommentedProcess // trailing collab comment
+    == MainPool // pool comment
+        -- Ops
+            || Default
+                // element comment
+                (s) Start
+                    => Review // flow comment
+                [] Review
+                    => Done
+                (e) Done

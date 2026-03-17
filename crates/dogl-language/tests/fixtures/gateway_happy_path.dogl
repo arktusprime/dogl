@@ -1,0 +1,13 @@
+collab GatewayProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => RouteInclusive
+                <> RouteInclusive
+                    => RouteExclusive
+                <x> RouteExclusive
+                    => RouteParallel
+                <p> RouteParallel
+                    => Done
+                (e) Done

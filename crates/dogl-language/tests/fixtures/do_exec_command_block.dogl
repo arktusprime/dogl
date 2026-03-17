@@ -1,0 +1,8 @@
+collab CommandProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] ReviewOrder
+                    [do.exec] validateOrder(order.id)
+                    => Done
+                (e) Done

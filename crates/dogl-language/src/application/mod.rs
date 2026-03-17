@@ -5,8 +5,8 @@
 
 use crate::{
     domain::DoglFile,
-    resolver::ResolverOutput,
-    syntax::{SourceFile, SyntaxDocument},
+    resolver::{resolve, ResolverOutput},
+    syntax::{lex, parse as parse_syntax, SyntaxDocument},
     validation::{self, ValidationReport},
 };
 
@@ -34,13 +34,14 @@ pub struct ParseOutput {
 }
 
 pub fn parse(source: &str) -> ParseOutput {
+    let syntax = parse_syntax(lex(source));
+    let resolver = resolve(&syntax);
+    let semantic_file = resolver.lowering.semantic_file.clone();
+
     ParseOutput {
-        syntax: SyntaxDocument {
-            source: SourceFile::new(source),
-            ..SyntaxDocument::default()
-        },
-        resolver: ResolverOutput::default(),
-        semantic_file: None,
+        syntax,
+        resolver,
+        semantic_file,
     }
 }
 

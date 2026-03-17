@@ -1,0 +1,11 @@
+collab LegacyProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] ReviewOrder @do check amount
+                    => RouteOrder
+                <x> RouteOrder @dmn: "OrderRouting"
+                    => ChildProcess
+                [call] ChildProcess @call: "ChildProcess"
+                    => Done
+                (e) Done

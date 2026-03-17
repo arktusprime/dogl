@@ -1,0 +1,7 @@
+collab CommandProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] ReviewOrder [do] check amount
+                    => Done
+                (e) Done

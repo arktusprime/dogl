@@ -29,6 +29,14 @@ Formal list of lexical tokens for the DOGL notation. Each token has **rules** th
 | Context | Starts a standalone DMN decision block. |
 | Follows | Whitespace, then an **Identifier** (decision name). Then indented lines with DMN rules (condition `=>` target or `=>d` target). |
 
+### `layout`
+
+| Rule | Description |
+|------|-------------|
+| Lexical | Exact ASCII string `layout`. Case-sensitive. Not part of a longer identifier. |
+| Context | Starts an optional bottom-of-file layout block. |
+| Follows | Newline, then an indented hierarchy grouped by pool and reusing the same structural and element markers as the main process syntax. |
+
 ---
 
 ## 2. Structure (pool, lane, stage)
@@ -76,7 +84,7 @@ Element tokens are the shape plus optional code. **Longest match** for codes (e.
 |------|-------------|
 | Lexical | One of the four forms above. No space between `(` and `s`/`i`/`e`/`)`. |
 | Context | Starts an element line. After optional structure (pool/lane/stage) and indentation. |
-| Follows | Whitespace, then **Identifier** (element name). Optional: **bounds** `{ x y w h }` (diagram position). Optional: expressions `@do`, `@dmn:`, `@call:`, etc. If bounds omitted, auto-placement applies. Then newline; next lines may be indented flows or DMN rules. |
+| Follows | Whitespace, then **Identifier** (element name). Optional: **bounds** `{ x y w h }` (diagram position). Optional: one bracket-command such as `[do] value` or `[do.exec] value`. If bounds omitted, auto-placement applies. Then newline; next lines may be indented flows or command lines. |
 
 ### Task
 
@@ -102,7 +110,7 @@ Element tokens are the shape plus optional code. **Longest match** for codes (e.
 |------|-------------|
 | Lexical | `<` followed by zero or more lowercase letters (known gateway code), then `>`. Longest match. |
 | Context | Element line. |
-| Follows | Identifier (name), optional bounds `{ x y w h }`, optional `@dmn: "..."`. Outgoing flows either listed as indented `=>` / `=>d` lines or inferred from inline DMN rules under the gateway. |
+| Follows | Identifier (name), optional bounds `{ x y w h }`, optional `[dmn] DecisionName`. Outgoing flows either listed as indented `=>` / `=>d` lines or inferred from inline DMN rules under the gateway. |
 
 ### Artifact
 
@@ -155,22 +163,22 @@ Element tokens are the shape plus optional code. **Longest match** for codes (e.
 
 ---
 
-## 5. Expressions (on elements)
+## 5. Bracket commands (on elements)
 
-### `@`-commands
+### `[command] value`
 
 | Rule | Description |
 |------|-------------|
-| Lexical | `@` followed by optional `~` (disable), then a command name: `do`, `dmn`, `call`, or `do.` + qualifier (e.g. `exec`, `timer`, `timeout`, `notify`). Then optional `:` and value. Command name is a contiguous run of letters, digits, dots. Value may be a quoted string or rest of token/line. Lexer may emit one token per `@...` segment or split into `@`, command, `:`, value; contract allows either as long as parser can recover structure. |
-| Context | On an element line, after the element name. Multiple expressions allowed per element. |
-| Follows | For `@do` (no colon): optional free text to end of line or next `@`. For `@dmn:` / `@call:`: quoted **String** or identifier. For `@do.qualifier:`: value after colon. |
+| Lexical | `[` + command name + `]`, where command name is `call`, `dmn`, `do`, or `do.` + qualifier (for example `do.exec`, `do.timer`, `do.notify`). After the closing `]`, whitespace may follow and then the command value. |
+| Context | On an element line after the element identifier, or on its own line inside an indented element block. |
+| Follows | For `[call]` and `[dmn]`: identifier or quoted **String**. For `[do]` and `[do.qualifier]`: free text to end of line. |
 
-### Suggested tokenization
+### Rules
 
-- **Option A**: One token per full expression, e.g. `AtDo`, `AtDmn`, `AtCall`, `AtDoExec`, `AtDisable` with payload (string or rest of line). Parser splits payload.
-- **Option B**: Tokens `@`, `Identifier` (do/dmn/call/do.exec/…), optionally `:`, **String** or **Identifier**. Parser assembles expressions.
-
-Rules above apply regardless; only the granularity of tokens differs.
+- `@...` forms are legacy and **not valid** notation.
+- `[call]` at the start of an element line is the task marker for a call activity: `[call] ChildProcess`.
+- After a generic task, event, or gateway identifier, bracket commands attach behavior or references, for example `[] ReviewOrder [do] check amount` or `<x> RouteOrder [dmn] OrderRouting`.
+- If additional commands are needed, write them on indented child lines under the element.
 
 ---
 
@@ -189,7 +197,7 @@ Rules above apply regardless; only the granularity of tokens differs.
 | Rule | Description |
 |------|-------------|
 | Lexical | Double quote `"`, then any characters except unescaped `"`, then `"`. Escape sequence (e.g. `\"`) if defined. |
-| Context | Values for `@dmn: "..."`, `@call: "..."`, and similar. In layout, string values if the format uses them. |
+| Context | Values for bracket commands such as `[dmn] "OrderRouting"` when quoting is needed. In layout, string values if the format uses them. |
 | Follows | Whitespace, newline, or next token. |
 
 ### Number
@@ -202,7 +210,17 @@ Rules above apply regardless; only the granularity of tokens differs.
 
 ---
 
-## 7. Inline bounds (optional)
+## 7. Layout modes and inline bounds
+
+DOGL supports **two valid layout modes**:
+
+1. **Inline bounds** after an entity identifier.
+2. **Bottom `layout` block** at the end of the file.
+
+Both modes describe the same semantic target: bounds for pools, lanes, stages, and elements.
+If bounds are omitted in either mode, auto-placement is applied by the tool.
+
+### 7.1 Inline bounds (optional)
 
 **Bounds** are optional. After the **Identifier** of an element, pool, lane, or stage, you may write `{ x y w h }` (four numbers: position x, y and size w, h). If bounds are **not** specified, **auto-placement** is applied; the auto-placement algorithm is defined separately (e.g. by the renderer or tool).
 
@@ -223,7 +241,47 @@ Pool, lane, stage may also have optional bounds: `== PoolName {0 0 400 300}`, `-
 |------|-------------|
 | Lexical | `{` followed by four **Number**s (x, y, w, h) separated by whitespace, then `}`. No commas. |
 | Context | Optional, immediately after the entity **Identifier** on the same line (element, pool, lane, or stage). |
-| Follows | After `}`: whitespace, then optional expressions (on elements) or newline. |
+| Follows | After `}`: whitespace, then optional bracket command (on elements) or newline. |
+
+### 7.2 Bottom `layout` block
+
+The second valid mode is a bottom-of-file `layout` block. It reuses the same grouping and element markers as the main syntax, but carries **bounds only**.
+
+**Rules:**
+
+- The `layout` block appears after the main process section.
+- The block is grouped by pool using `==`.
+- Inside each pool, lanes and stages use the same markers `--` and `||`.
+- Elements inside the block also reuse their regular markers, for example `[]`, `[call]`, `()`, `(s)`, `(e)`, `<>`, `<x>`, `<p>`.
+- Entries in the block identify the same pools, lanes, stages, and elements as the main process section and attach bounds to them.
+- Element ordering inside each pool should follow the order of the main process section.
+
+**Example:**
+
+```dogl
+collab OrderProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Review
+                [] Review
+                    => Done
+                <x> Route
+                    => Done
+                (e) Done
+
+layout
+    == MainPool {0 0 600 320}
+        -- Ops {0 40 600 80}
+            || Default {120 0 180 320}
+                (s) Start {80 140 36 36}
+                [] Review {180 132 100 52}
+                <x> Route {340 136 50 50}
+                (e) Done {460 140 36 36}
+```
+
+The `layout` block is a second source form, not a second semantic model. Tools should lower either mode into the same layout representation.
 
 ### `{` and `}` (bounds)
 
@@ -295,11 +353,12 @@ Indentation uses **the same rules as Python**: significant whitespace, no mixing
 | Gateway | `<>`, `<x>`, `<p>`, … | Longest match. |
 | Artifact | `{}`, `{d}`, `{db}`, … | Longest match. |
 | Flow | `=>`, `=>d`, `->`, `.>` | `=>d` before `=>`. |
-| Expression | `@do`, `@dmn:`, `@call:`, `@~...` | See §5. |
+| Command | `[do]`, `[dmn]`, `[call]`, `[do.exec]` | See §5. |
 | Identifier | PascalCase names | Not keyword. |
 | String | `"..."` | Quoted. |
 | Number | Decimal, optional fraction | Inline bounds: four numbers inside `{ }`. |
 | Bounds | `{ x y w h }` | Optional after entity Identifier; if omitted, auto-placement. |
+| Keyword | `layout` | Optional bottom layout block. |
 | Comment | `//`, `[[ ]]` | Optional token. |
 | Newline / Indent / Dedent / Eof | — | Per §9; indentation is Python-style. |
 

@@ -1,0 +1,9 @@
+collab ChildProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Finish
+                [] Finish
+                    => EndNode
+                (e) EndNode

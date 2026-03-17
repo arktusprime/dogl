@@ -63,10 +63,10 @@ collab ProcessName
 
 | Syntax | Meaning |
 | --- | --- |
-| `@do` | placeholder or behavior attachment |
-| `@dmn` | decision reference |
-| `@call` | call-activity reference |
-| `@~...` | disabled form |
+| `[do] text` | placeholder or behavior attachment |
+| `[dmn] DecisionName` | decision reference |
+| `[call] ProcessName` | call-activity reference |
+| `[do.exec] code` | qualified behavior attachment |
 
 ### Structure
 
@@ -75,6 +75,13 @@ collab ProcessName
 | `==` | participant-like grouping |
 | `--` | lane-like grouping |
 | `\|\|` | stage-like DOGL extension |
+
+### Layout
+
+| Syntax | Meaning |
+| --- | --- |
+| `{ x y w h }` after id | inline bounds |
+| `layout` block at file end | grouped layout using the same markers |
 
 ---
 
