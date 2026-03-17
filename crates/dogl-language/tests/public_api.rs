@@ -1,5 +1,6 @@
 use dogl_language::{
-    export_bpmn, import_bpmn, parse, to_json, validate, ApplicationError, domain::DoglFile,
+    export_bpmn, import_bpmn, parse, to_json, validate, validate_for_layout,
+    validate_parse_output, ApplicationError, domain::DoglFile,
     domain::{Element, GatewayCode, TaskCode},
     resolver::{
         BindingSummary, LoweredSemanticFile, NameResolutionSummary, NormalizationPass,
@@ -116,6 +117,51 @@ layout
                 [] Review {180 132 100 52}
                 <x> Route {340 136 50 50}
                 (e) Done {460 140 36 36}
+"#;
+
+const INVALID_VALIDATION_ORPHAN_TASK: &str = r#"collab InvalidProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] Review
+                (e) Done
+"#;
+
+const INVALID_END_EVENT_WITH_OUTGOING_FLOW: &str = r#"collab InvalidProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Done
+                (e) Done
+                    => AfterDone
+                [] AfterDone
+"#;
+
+const INVALID_COMPONENT_WITHOUT_BOUNDARY_EVENTS: &str = r#"collab InvalidProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] Review
+                    => Approve
+                [] Approve
+                    => Review
+"#;
+
+const VALID_TWO_GRAPHS_IN_ONE_POOL: &str = r#"collab MultiGraphProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) StartA
+                    => ReviewA
+                [] ReviewA
+                    => DoneA
+                (e) DoneA
+                (s) StartB
+                    => ReviewB
+                [] ReviewB
+                    => DoneB
+                (e) DoneB
 "#;
 
 #[test]
@@ -369,11 +415,95 @@ fn resolver_contracts_preserve_stage_specific_placeholder_data() {
 }
 
 #[test]
-fn validation_facade_returns_empty_report_for_placeholder_domain() {
-    let file = DoglFile::new(vec![]);
-    let report = validate(&file);
+fn validation_facade_returns_empty_report_for_valid_semantic_file() {
+    let output = parse(VALID_CALL_ACTIVITY);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+    let report = validate(file);
 
+    assert!(!report.has_errors());
     assert!(report.diagnostics.is_empty());
+}
+
+#[test]
+fn validate_parse_output_surfaces_source_linked_validation_errors() {
+    let output = parse(INVALID_VALIDATION_ORPHAN_TASK);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let report = validate_parse_output(&output);
+    assert!(report.has_errors());
+
+    let diagnostic = report
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.metadata.code == Some("DOGL2207"))
+        .expect("missing incoming validation diagnostic");
+    let span = diagnostic.span.expect("source span");
+
+    assert_eq!(span.start.line, 5);
+    assert_eq!(span.start.column, 17);
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2208")));
+}
+
+#[test]
+fn validate_for_layout_blocks_layout_when_validation_fails() {
+    let output = parse(INVALID_END_EVENT_WITH_OUTGOING_FLOW);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let validation = validate_for_layout(&output);
+    assert!(!validation.can_run_layout);
+    assert!(validation.report.has_errors());
+    assert!(validation
+        .report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2202")));
+}
+
+#[test]
+fn validate_for_layout_allows_layout_when_validation_succeeds() {
+    let output = parse(VALID_CALL_ACTIVITY);
+    let validation = validate_for_layout(&output);
+
+    assert!(validation.can_run_layout);
+    assert!(validation.report.diagnostics.is_empty());
+}
+
+#[test]
+fn validate_parse_output_rejects_component_without_start_and_end_events() {
+    let output = parse(INVALID_COMPONENT_WITHOUT_BOUNDARY_EVENTS);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let report = validate_parse_output(&output);
+    assert!(report.has_errors());
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2210")));
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2211")));
+}
+
+#[test]
+fn validate_for_layout_allows_multiple_independent_graphs_per_pool() {
+    let output = parse(VALID_TWO_GRAPHS_IN_ONE_POOL);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let validation = validate_for_layout(&output);
+    assert!(validation.can_run_layout);
+    assert!(validation.report.diagnostics.is_empty());
 }
 
 #[test]

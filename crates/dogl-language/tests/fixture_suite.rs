@@ -1,6 +1,6 @@
 use dogl_language::{
     domain::{Element, GatewayCode, TaskCode},
-    parse,
+    parse, validate_for_layout, validate_parse_output,
 };
 
 const CALL_ACTIVITY_HAPPY_PATH: &str = include_str!("fixtures/call_activity_happy_path.dogl");
@@ -22,6 +22,13 @@ const BARE_TASK_WITHOUT_CODE: &str = include_str!("fixtures/bare_task_without_co
 const DUPLICATE_ELEMENT_IDS: &str = include_str!("fixtures/duplicate_element_ids.dogl");
 const PARENT_FIXTURE: &str = include_str!("fixtures/parent.dogl");
 const CHILD_FIXTURE: &str = include_str!("fixtures/child.dogl");
+const VALIDATION_ORPHAN_TASK: &str = include_str!("fixtures/validation_orphan_task.dogl");
+const VALIDATION_END_EVENT_WITH_OUTGOING_FLOW: &str =
+    include_str!("fixtures/validation_end_event_with_outgoing_flow.dogl");
+const VALIDATION_COMPONENT_WITHOUT_BOUNDARY_EVENTS: &str =
+    include_str!("fixtures/validation_component_without_boundary_events.dogl");
+const VALIDATION_TWO_VALID_GRAPHS: &str =
+    include_str!("fixtures/validation_two_valid_graphs.dogl");
 
 #[test]
 fn call_activity_happy_path_fixture_lowers_to_semantic_domain() {
@@ -309,4 +316,76 @@ fn parent_and_child_fixtures_parse_independently_for_next_phase() {
 
     assert_eq!(parent_call.code, TaskCode::CallActivity);
     assert_eq!(parent_call.call_target.as_deref(), Some(child_file.collabs[0].id.as_str()));
+}
+
+#[test]
+fn orphan_task_fixture_reports_validation_errors_with_source_spans() {
+    let output = parse(VALIDATION_ORPHAN_TASK);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let report = validate_parse_output(&output);
+    assert!(report.has_errors());
+
+    let disconnected = report
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.metadata.code == Some("DOGL2207"))
+        .expect("missing incoming task diagnostic");
+
+    let span = disconnected.span.expect("source span");
+    assert_eq!(span.start.line, 5);
+    assert_eq!(span.start.column, 17);
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2208")));
+}
+
+#[test]
+fn invalid_validation_fixture_blocks_future_layout_step() {
+    let output = parse(VALIDATION_END_EVENT_WITH_OUTGOING_FLOW);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let validation = validate_for_layout(&output);
+    assert!(!validation.can_run_layout);
+    assert!(validation.report.has_errors());
+    assert!(validation
+        .report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2202")));
+}
+
+#[test]
+fn component_without_boundary_events_fixture_reports_graph_errors() {
+    let output = parse(VALIDATION_COMPONENT_WITHOUT_BOUNDARY_EVENTS);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let report = validate_parse_output(&output);
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2210")));
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.metadata.code == Some("DOGL2211")));
+}
+
+#[test]
+fn multiple_valid_graphs_in_one_pool_are_allowed() {
+    let output = parse(VALIDATION_TWO_VALID_GRAPHS);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+
+    let validation = validate_for_layout(&output);
+    assert!(validation.can_run_layout);
+    assert!(validation.report.diagnostics.is_empty());
 }

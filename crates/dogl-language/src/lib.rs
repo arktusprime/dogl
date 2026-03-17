@@ -11,6 +11,7 @@ pub mod application;
 pub mod validation;
 
 pub use application::{
-    export_bpmn, import_bpmn, parse, to_json, validate, ApplicationError, BpmnExport,
-    JsonOutput, ParseOutput,
+    export_bpmn, import_bpmn, parse, to_json, validate, validate_for_layout,
+    validate_parse_output, ApplicationError, BpmnExport, JsonOutput, LayoutValidation,
+    ParseOutput,
 };

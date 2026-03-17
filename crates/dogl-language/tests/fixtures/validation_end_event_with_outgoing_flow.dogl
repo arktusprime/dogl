@@ -1,0 +1,9 @@
+collab InvalidProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Done
+                (e) Done
+                    => AfterDone
+                [] AfterDone

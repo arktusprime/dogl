@@ -1,0 +1,8 @@
+collab InvalidProcess
+    == MainPool
+        -- Ops
+            || Default
+                [] Review
+                    => Approve
+                [] Approve
+                    => Review

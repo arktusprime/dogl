@@ -1,0 +1,14 @@
+collab MultiGraphProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) StartA
+                    => ReviewA
+                [] ReviewA
+                    => DoneA
+                (e) DoneA
+                (s) StartB
+                    => ReviewB
+                [] ReviewB
+                    => DoneB
+                (e) DoneB
