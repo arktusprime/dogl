@@ -1,6 +1,7 @@
 use dogl_language::{
-    domain::{Element, GatewayCode, TaskCode},
-    parse, validate_for_layout, validate_parse_output,
+    apply_layout,
+    domain::{Bounds, Element, GatewayCode, Identifiable, TaskCode},
+    layout_parse_output, parse, render_dogl, validate_for_layout, validate_parse_output,
 };
 
 const CALL_ACTIVITY_HAPPY_PATH: &str = include_str!("fixtures/call_activity_happy_path.dogl");
@@ -29,6 +30,10 @@ const VALIDATION_COMPONENT_WITHOUT_BOUNDARY_EVENTS: &str =
     include_str!("fixtures/validation_component_without_boundary_events.dogl");
 const VALIDATION_TWO_VALID_GRAPHS: &str =
     include_str!("fixtures/validation_two_valid_graphs.dogl");
+const LAYOUT_BASIC_CHAIN: &str = include_str!("fixtures/layout_basic_chain.dogl");
+const LAYOUT_MULTIPLE_LANES: &str = include_str!("fixtures/layout_multiple_lanes.dogl");
+const LAYOUT_GATEWAY_FANOUT: &str = include_str!("fixtures/layout_gateway_fanout.dogl");
+const LAYOUT_BACKWARD_CONNECTION: &str = include_str!("fixtures/layout_backward_connection.dogl");
 
 #[test]
 fn call_activity_happy_path_fixture_lowers_to_semantic_domain() {
@@ -388,4 +393,85 @@ fn multiple_valid_graphs_in_one_pool_are_allowed() {
     let validation = validate_for_layout(&output);
     assert!(validation.can_run_layout);
     assert!(validation.report.diagnostics.is_empty());
+}
+
+#[test]
+fn basic_chain_fixture_layouts_left_to_right() {
+    let output = parse(LAYOUT_BASIC_CHAIN);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let start = element_bounds(&file, "Start");
+    let review = element_bounds(&file, "Review");
+    let done = element_bounds(&file, "Done");
+
+    assert!(start.x() < review.x());
+    assert!(review.x() < done.x());
+}
+
+#[test]
+fn multi_lane_fixture_separates_elements_by_lane() {
+    let output = parse(LAYOUT_MULTIPLE_LANES);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let start_ops = element_bounds(&file, "StartOps");
+    let review_sales = element_bounds(&file, "ReviewInSales");
+
+    assert!(review_sales.x() > start_ops.x());
+    assert!(review_sales.y() > start_ops.y());
+}
+
+#[test]
+fn gateway_fanout_fixture_places_targets_on_separate_rows() {
+    let output = parse(LAYOUT_GATEWAY_FANOUT);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let approve = element_bounds(&file, "Approve");
+    let reject = element_bounds(&file, "Reject");
+
+    assert_eq!(approve.x(), reject.x());
+    assert!(reject.y() > approve.y());
+}
+
+#[test]
+fn backward_connection_fixture_keeps_earlier_target_position() {
+    let output = parse(LAYOUT_BACKWARD_CONNECTION);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let review = element_bounds(&file, "Review");
+    let rework = element_bounds(&file, "Rework");
+
+    assert!(review.x() < rework.x());
+}
+
+#[test]
+fn rendered_layout_fixture_roundtrips_through_parse() {
+    let output = parse(LAYOUT_BASIC_CHAIN);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+    let laid_out = apply_layout(file).expect("laid out file");
+    let rendered = render_dogl(&laid_out).expect("rendered");
+    let reparsed = parse(&rendered);
+
+    assert!(reparsed.syntax.diagnostics.is_empty());
+    assert!(reparsed.resolver.diagnostics.is_empty());
+    assert!(reparsed.semantic_file.expect("semantic file").collabs[0].layout.is_some());
+}
+
+fn element_bounds(file: &dogl_language::domain::DoglFile, element_id: &str) -> Bounds {
+    let pool = &file.collabs[0].pools[0];
+    let element = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find(|element| element.id() == element_id)
+        .expect("element");
+    file.collabs[0]
+        .layout
+        .as_ref()
+        .and_then(|layout| layout.get(element.uid()))
+        .cloned()
+        .expect("element bounds")
 }

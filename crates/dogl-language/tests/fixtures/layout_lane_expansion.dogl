@@ -1,0 +1,14 @@
+collab ExpansionProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) StartA
+                    => TaskA
+                [] TaskA
+                    => DoneA
+                (e) DoneA
+                (s) StartB
+                    => TaskB
+                [] TaskB
+                    => DoneB
+                (e) DoneB

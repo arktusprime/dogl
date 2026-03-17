@@ -1,0 +1,11 @@
+collab MultiLaneProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) StartOps
+                    => ReviewInSales
+        -- Sales
+            || Default
+                [] ReviewInSales
+                    => DoneInSales
+                (e) DoneInSales

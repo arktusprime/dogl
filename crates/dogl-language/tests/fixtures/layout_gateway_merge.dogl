@@ -1,0 +1,11 @@
+collab GatewayMerge
+    == MainPool
+        -- Ops
+            || Default
+                (s) StartA
+                    => Merge
+                (s) StartB
+                    => Merge
+                <x> Merge
+                    => Done
+                (e) Done

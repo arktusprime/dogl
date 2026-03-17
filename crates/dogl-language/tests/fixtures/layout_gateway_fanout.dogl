@@ -1,0 +1,14 @@
+collab GatewayFanout
+    == MainPool
+        -- Ops
+            || Default
+                (s) Start
+                    => Route
+                <x> Route
+                    => Approve
+                    => Reject
+                [] Approve
+                    => Done
+                [] Reject
+                    => Done
+                (e) Done

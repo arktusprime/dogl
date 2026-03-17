@@ -9,9 +9,10 @@ pub mod resolver;
 pub mod domain;
 pub mod application;
 pub mod validation;
+pub mod layout;
 
 pub use application::{
-    export_bpmn, import_bpmn, parse, to_json, validate, validate_for_layout,
-    validate_parse_output, ApplicationError, BpmnExport, JsonOutput, LayoutValidation,
-    ParseOutput,
+    apply_layout, export_bpmn, import_bpmn, layout_parse_output, parse, render_dogl, to_json,
+    validate, validate_for_layout, validate_parse_output, ApplicationError, BpmnExport,
+    JsonOutput, LayoutStageOutput, LayoutValidation, ParseOutput,
 };

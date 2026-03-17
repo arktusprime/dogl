@@ -1,7 +1,7 @@
 use dogl_language::{
-    export_bpmn, import_bpmn, parse, to_json, validate, validate_for_layout,
-    validate_parse_output, ApplicationError, domain::DoglFile,
-    domain::{Element, GatewayCode, TaskCode},
+    apply_layout, export_bpmn, import_bpmn, layout_parse_output, parse, render_dogl, to_json,
+    validate, validate_for_layout, validate_parse_output, ApplicationError, domain::DoglFile,
+    domain::{Bounds, Element, GatewayCode, Identifiable, TaskCode},
     resolver::{
         BindingSummary, LoweredSemanticFile, NameResolutionSummary, NormalizationPass,
         ResolverDiagnostic, ResolverDiagnosticSeverity, ResolverOutput,
@@ -163,6 +163,13 @@ const VALID_TWO_GRAPHS_IN_ONE_POOL: &str = r#"collab MultiGraphProcess
                     => DoneB
                 (e) DoneB
 "#;
+
+const LAYOUT_BASIC_CHAIN: &str = include_str!("fixtures/layout_basic_chain.dogl");
+const LAYOUT_MULTIPLE_LANES: &str = include_str!("fixtures/layout_multiple_lanes.dogl");
+const LAYOUT_LANE_EXPANSION: &str = include_str!("fixtures/layout_lane_expansion.dogl");
+const LAYOUT_GATEWAY_FANOUT: &str = include_str!("fixtures/layout_gateway_fanout.dogl");
+const LAYOUT_GATEWAY_MERGE: &str = include_str!("fixtures/layout_gateway_merge.dogl");
+const LAYOUT_BACKWARD_CONNECTION: &str = include_str!("fixtures/layout_backward_connection.dogl");
 
 #[test]
 fn parse_returns_populated_layers_for_valid_call_activity_input() {
@@ -507,6 +514,143 @@ fn validate_for_layout_allows_multiple_independent_graphs_per_pool() {
 }
 
 #[test]
+fn layout_parse_output_places_basic_chain_left_to_right() {
+    let output = parse(LAYOUT_BASIC_CHAIN);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    assert!(stage.validation.can_run_layout);
+    let file = stage.laid_out_file.expect("laid out file");
+
+    let start = element_bounds(&file, "Start");
+    let review = element_bounds(&file, "Review");
+    let done = element_bounds(&file, "Done");
+
+    assert!(start.x() < review.x());
+    assert!(review.x() < done.x());
+    assert_eq!(center_y(&start), center_y(&review));
+    assert_eq!(center_y(&review), center_y(&done));
+    assert!(pool_bounds(&file).w() > 0.0);
+    assert!(lane_bounds(&file, "Ops").h() > 0.0);
+}
+
+#[test]
+fn layout_parse_output_separates_lanes_vertically() {
+    let output = parse(LAYOUT_MULTIPLE_LANES);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let start_ops = element_bounds(&file, "StartOps");
+    let review_sales = element_bounds(&file, "ReviewInSales");
+    let ops_lane = lane_bounds(&file, "Ops");
+    let sales_lane = lane_bounds(&file, "Sales");
+
+    assert!(review_sales.x() > start_ops.x());
+    assert!(sales_lane.y() > ops_lane.y());
+    assert!(review_sales.y() >= sales_lane.y());
+}
+
+#[test]
+fn layout_parse_output_expands_lane_for_multiple_start_rows() {
+    let output = parse(LAYOUT_LANE_EXPANSION);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let start_a = element_bounds(&file, "StartA");
+    let start_b = element_bounds(&file, "StartB");
+    let lane = lane_bounds(&file, "Ops");
+
+    assert!(start_b.y() > start_a.y());
+    assert!(lane.h() > 160.0);
+}
+
+#[test]
+fn layout_parse_output_applies_gateway_fan_out_rule() {
+    let output = parse(LAYOUT_GATEWAY_FANOUT);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let route = element_bounds(&file, "Route");
+    let approve = element_bounds(&file, "Approve");
+    let reject = element_bounds(&file, "Reject");
+
+    assert!(approve.x() > route.x());
+    assert_eq!(approve.x(), reject.x());
+    assert!(reject.y() > approve.y());
+}
+
+#[test]
+fn layout_parse_output_places_merge_gateway_from_first_source() {
+    let output = parse(LAYOUT_GATEWAY_MERGE);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let start_a = element_bounds(&file, "StartA");
+    let start_b = element_bounds(&file, "StartB");
+    let merge = element_bounds(&file, "Merge");
+    let done = element_bounds(&file, "Done");
+
+    assert!(center_y(&start_b) > center_y(&start_a));
+    assert_eq!(center_y(&merge), center_y(&start_a));
+    assert!(merge.x() > start_a.x());
+    assert!(done.x() > merge.x());
+}
+
+#[test]
+fn layout_parse_output_keeps_backward_links_from_repositioning_targets() {
+    let output = parse(LAYOUT_BACKWARD_CONNECTION);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+    let review = element_bounds(&file, "Review");
+    let route = element_bounds(&file, "Route");
+    let rework = element_bounds(&file, "Rework");
+
+    assert!(route.x() > review.x());
+    assert!(rework.x() > route.x());
+    assert!(review.x() < rework.x());
+}
+
+#[test]
+fn apply_layout_and_render_dogl_are_deterministic() {
+    let output = parse(LAYOUT_GATEWAY_FANOUT);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+
+    let first = apply_layout(file).expect("first layout");
+    let second = apply_layout(file).expect("second layout");
+    let first_rendered = render_dogl(&first).expect("first render");
+    let second_rendered = render_dogl(&second).expect("second render");
+
+    assert_eq!(first, second);
+    assert_eq!(first_rendered, second_rendered);
+}
+
+#[test]
+fn render_dogl_replaces_previous_layout_with_canonical_layout_block() {
+    let output = parse(INLINE_LAYOUT_SOURCE);
+    let stage = layout_parse_output(&output).expect("layout stage");
+    let file = stage.laid_out_file.expect("laid out file");
+
+    let rendered = render_dogl(&file).expect("rendered source");
+    assert!(rendered.contains("\nlayout\n"));
+    assert!(!rendered.contains("[] Review {180 132 100 52}"));
+    assert_eq!(rendered.matches("\nlayout\n").count(), 1);
+
+    let reparsed = parse(&rendered);
+    assert!(reparsed.syntax.diagnostics.is_empty());
+    assert!(reparsed.resolver.diagnostics.is_empty());
+    assert!(reparsed.semantic_file.as_ref().and_then(|file| file.collabs[0].layout.as_ref()).is_some());
+}
+
+#[test]
+fn layout_parse_output_blocks_layout_when_validation_fails() {
+    let output = parse(INVALID_VALIDATION_ORPHAN_TASK);
+
+    let stage = layout_parse_output(&output).expect("layout stage");
+    assert!(!stage.validation.can_run_layout);
+    assert!(stage.laid_out_file.is_none());
+}
+
+#[test]
 fn export_and_json_facades_are_explicitly_not_implemented_yet() {
     let file = DoglFile::new(vec![]);
 
@@ -578,4 +722,48 @@ fn syntax_contracts_reserve_source_fidelity_and_recovery_shapes() {
     assert_eq!(document.node(SyntaxNodeId(0)), Some(&node));
     assert_eq!(document.comments().count(), 1);
     assert_eq!(document.trivia_slice(token.leading_trivia), Some(&document.trivia[0..1]));
+}
+
+fn element_bounds(file: &DoglFile, element_id: &str) -> Bounds {
+    let pool = &file.collabs[0].pools[0];
+    let element = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find(|element| element.id() == element_id)
+        .expect("element");
+    file.collabs[0]
+        .layout
+        .as_ref()
+        .and_then(|layout| layout.get(element.uid()))
+        .cloned()
+        .expect("element bounds")
+}
+
+fn lane_bounds(file: &DoglFile, lane_id: &str) -> Bounds {
+    let lane = file.collabs[0].pools[0]
+        .lanes
+        .iter()
+        .find(|lane| lane.id == lane_id)
+        .expect("lane");
+    file.collabs[0]
+        .layout
+        .as_ref()
+        .and_then(|layout| layout.get(lane.uid))
+        .cloned()
+        .expect("lane bounds")
+}
+
+fn pool_bounds(file: &DoglFile) -> Bounds {
+    let pool = &file.collabs[0].pools[0];
+    file.collabs[0]
+        .layout
+        .as_ref()
+        .and_then(|layout| layout.get(pool.uid))
+        .cloned()
+        .expect("pool bounds")
+}
+
+fn center_y(bounds: &Bounds) -> i64 {
+    ((bounds.y() + bounds.h() / 2.0) * 100.0).round() as i64
 }
