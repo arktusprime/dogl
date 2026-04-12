@@ -14,8 +14,8 @@ const ARTIFACT_HEIGHT: f64 = 80.0;
 
 const CELL_WIDTH: f64 = TASK_WIDTH * 2.0;
 const CELL_HEIGHT: f64 = TASK_HEIGHT * 2.0;
-const POOL_HEADER_HEIGHT: f64 = 40.0;
-const LANE_LABEL_WIDTH: f64 = 120.0;
+const POOL_HEADER_WIDTH: f64 = 30.0;
+const LANE_LABEL_WIDTH: f64 = 30.0;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LayoutError {
@@ -222,7 +222,7 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
     }
 
     let mut pixel_layout = Layout::default();
-    let pool_bounds = bounds(0.0, 0.0, LANE_LABEL_WIDTH + pool_grid_width as f64 * CELL_WIDTH, POOL_HEADER_HEIGHT + next_lane_y as f64 * CELL_HEIGHT)?;
+    let pool_bounds = bounds(0.0, 0.0, POOL_HEADER_WIDTH + LANE_LABEL_WIDTH + pool_grid_width as f64 * CELL_WIDTH, next_lane_y as f64 * CELL_HEIGHT)?;
     pixel_layout.set(pool.uid, pool_bounds);
 
     let mut lane_grids = HashMap::new();
@@ -242,8 +242,8 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
             },
         );
         let lane_bounds = bounds(
-            0.0,
-            POOL_HEADER_HEIGHT + lane_y as f64 * CELL_HEIGHT,
+            POOL_HEADER_WIDTH,
+            lane_y as f64 * CELL_HEIGHT,
             LANE_LABEL_WIDTH + pool_grid_width as f64 * CELL_WIDTH,
             lane_state.rows as f64 * CELL_HEIGHT,
         )?;
@@ -270,9 +270,8 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
 
         let (shape_w, shape_h) = element_pixel_size(descriptor.element);
         let shape_bounds = bounds(
-            LANE_LABEL_WIDTH + cell.x as f64 * CELL_WIDTH + (CELL_WIDTH - shape_w) / 2.0,
-            POOL_HEADER_HEIGHT
-                + lane_y as f64 * CELL_HEIGHT
+            POOL_HEADER_WIDTH + LANE_LABEL_WIDTH + cell.x as f64 * CELL_WIDTH + (CELL_WIDTH - shape_w) / 2.0,
+            lane_y as f64 * CELL_HEIGHT
                 + cell.y as f64 * CELL_HEIGHT
                 + (CELL_HEIGHT - shape_h) / 2.0,
             shape_w,

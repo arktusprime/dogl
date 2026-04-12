@@ -46,6 +46,9 @@ pub enum TokenKind {
     GatewayMarker,
     GatewayExclusiveMarker,
     GatewayParallelMarker,
+    GatewayEventBasedMarker,
+    GatewayInclusiveMarker,
+    GatewayComplexMarker,
     TaskMarker,
     BracketCommand,
     CommandValue,
@@ -79,6 +82,9 @@ impl TokenKind {
             TokenKind::GatewayMarker
                 | TokenKind::GatewayExclusiveMarker
                 | TokenKind::GatewayParallelMarker
+                | TokenKind::GatewayEventBasedMarker
+                | TokenKind::GatewayInclusiveMarker
+                | TokenKind::GatewayComplexMarker
         )
     }
 }

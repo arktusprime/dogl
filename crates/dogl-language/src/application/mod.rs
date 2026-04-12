@@ -4,6 +4,7 @@
 //! lowering, adapter, and serialization behavior.
 
 mod dogl_writer;
+mod bpmn_writer;
 
 use crate::{
     layout,
@@ -130,5 +131,5 @@ pub fn import_bpmn(xml: &str) -> ParseOutput {
 }
 
 pub fn export_bpmn(_file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
-    Err(ApplicationError::NotImplemented("export_bpmn"))
+    bpmn_writer::render(_file)
 }

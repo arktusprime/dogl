@@ -84,6 +84,22 @@ collab CommentedProcess // collab comment
                 (e) Done
 "#;
 
+// Quoted labels differ from name_from_id(id) so render and BPMN export keep explicit names.
+const VALID_QUOTED_DISPLAY_NAME_SYNTAX: &str = r#"collab AliasProcess
+    == MainPool
+        -- Ops
+            || Default
+                (s) StartOrder "Begin order"
+                    => ReviewOrder
+                [] ReviewOrder "Check order" [do] check amount
+                    => RouteOrder
+                <x> RouteOrder "Routing"
+                    => ChildProcess
+                [call] ChildProcess "Initiation"
+                    => Done
+                (e) Done "Completed"
+"#;
+
 const INLINE_LAYOUT_SOURCE: &str = r#"collab LayoutProcess
     == MainPool {0 0 600 320}
         -- Ops {0 40 600 80}
@@ -298,6 +314,64 @@ fn parse_accepts_slash_comments_in_public_api() {
     assert!(output.resolver.diagnostics.is_empty());
     assert!(output.semantic_file.is_some());
     assert!(output.syntax.comments().count() >= 2);
+}
+
+#[test]
+fn parse_accepts_quoted_display_names_while_preserving_ascii_ids() {
+    let output = parse(VALID_QUOTED_DISPLAY_NAME_SYNTAX);
+
+    assert!(output.syntax.diagnostics.is_empty());
+    assert!(output.resolver.diagnostics.is_empty());
+    let semantic_file = output.semantic_file.as_ref().expect("semantic file");
+    let pool = &semantic_file.collabs[0].pools[0];
+
+    let start = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Event(event) if event.id == "StartOrder" => Some(event),
+            _ => None,
+        })
+        .expect("start event");
+    assert_eq!(start.id, "StartOrder");
+    assert_eq!(start.name, "Begin order");
+
+    let review = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Task(task) if task.id == "ReviewOrder" => Some(task),
+            _ => None,
+        })
+        .expect("review task");
+    assert_eq!(review.name, "Check order");
+    assert_eq!(review.expressions[0].key, "do");
+
+    let route = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Gateway(gateway) if gateway.id == "RouteOrder" => Some(gateway),
+            _ => None,
+        })
+        .expect("gateway");
+    assert_eq!(route.name, "Routing");
+
+    let call = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Task(task) if task.id == "ChildProcess" => Some(task),
+            _ => None,
+        })
+        .expect("call activity");
+    assert_eq!(call.name, "Initiation");
+    assert_eq!(call.call_target.as_deref(), Some("ChildProcess"));
+    assert_eq!(pool.sequence_flows.len(), 4);
 }
 
 #[test]
@@ -642,6 +716,34 @@ fn render_dogl_replaces_previous_layout_with_canonical_layout_block() {
 }
 
 #[test]
+fn render_dogl_preserves_explicit_quoted_display_names() {
+    let output = parse(VALID_QUOTED_DISPLAY_NAME_SYNTAX);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+    let laid_out = apply_layout(file).expect("laid out file");
+
+    let rendered = render_dogl(&laid_out).expect("rendered source");
+    assert!(rendered.contains(r#"[] ReviewOrder "Check order" [do] check amount"#));
+    assert!(rendered.contains(r#"[call] ChildProcess "Initiation""#));
+    assert!(rendered.contains(r#"<x> RouteOrder "Routing""#));
+
+    let reparsed = parse(&rendered);
+    assert!(reparsed.syntax.diagnostics.is_empty());
+    assert!(reparsed.resolver.diagnostics.is_empty());
+    let semantic_file = reparsed.semantic_file.as_ref().expect("semantic file");
+    let pool = &semantic_file.collabs[0].pools[0];
+    let review = pool
+        .quadrants
+        .iter()
+        .flat_map(|quadrant| quadrant.elements.iter())
+        .find_map(|element| match element {
+            Element::Task(task) if task.id == "ReviewOrder" => Some(task),
+            _ => None,
+        })
+        .expect("review task");
+    assert_eq!(review.name, "Check order");
+}
+
+#[test]
 fn layout_parse_output_blocks_layout_when_validation_fails() {
     let output = parse(INVALID_VALIDATION_ORPHAN_TASK);
 
@@ -651,16 +753,70 @@ fn layout_parse_output_blocks_layout_when_validation_fails() {
 }
 
 #[test]
-fn export_and_json_facades_are_explicitly_not_implemented_yet() {
+fn export_bpmn_emits_minimal_xml_for_laid_out_file() {
+    let output = parse(BOTTOM_LAYOUT_SOURCE);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+    let export = export_bpmn(file).expect("bpmn export");
+
+    assert!(export.xml.contains(r#"<bpmn:definitions"#));
+    assert!(export.xml.contains(r#"<bpmn:collaboration"#));
+    assert!(export.xml.contains(r#"<bpmn:process"#));
+    assert!(export.xml.contains(r#"<bpmn:laneSet"#));
+    assert!(export.xml.contains(r#"<bpmn:sequenceFlow"#));
+    assert!(export.xml.contains(r#"<bpmndi:BPMNDiagram"#));
+    assert!(export.xml.contains(r#"<dc:Bounds"#));
+}
+
+#[test]
+fn export_bpmn_emits_call_activity_and_called_element() {
+    let output = parse(VALID_CALL_ACTIVITY);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+    let laid_out = apply_layout(file).expect("laid out file");
+    let export = export_bpmn(&laid_out).expect("bpmn export");
+
+    assert!(export.xml.contains(r#"<bpmn:callActivity"#));
+    assert!(export.xml.contains(r#"name="ChildProcess""#));
+    assert!(!export.xml.contains(r#"name="Child process""#));
+    assert!(export
+        .xml
+        .contains(r#"calledElement="Process_ChildProcess""#));
+}
+
+#[test]
+fn export_bpmn_uses_explicit_display_names_in_xml() {
+    let output = parse(VALID_QUOTED_DISPLAY_NAME_SYNTAX);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+    let laid_out = apply_layout(file).expect("laid out file");
+    let export = export_bpmn(&laid_out).expect("bpmn export");
+
+    assert!(export.xml.contains(r#"name="Begin order""#));
+    assert!(export.xml.contains(r#"name="Check order""#));
+    assert!(export.xml.contains(r#"name="Routing""#));
+    assert!(export.xml.contains(r#"name="Initiation""#));
+    assert!(export
+        .xml
+        .contains(r#"calledElement="Process_ChildProcess""#));
+}
+
+#[test]
+fn export_bpmn_fails_fast_when_layout_is_missing() {
+    let output = parse(VALID_CALL_ACTIVITY);
+    let file = output.semantic_file.as_ref().expect("semantic file");
+
+    assert!(matches!(
+        export_bpmn(file),
+        Err(ApplicationError::Serialize(message))
+            if message.contains("requires an existing layout")
+    ));
+}
+
+#[test]
+fn json_facade_is_explicitly_not_implemented_yet() {
     let file = DoglFile::new(vec![]);
 
     assert_eq!(
         to_json(&file),
         Err(ApplicationError::NotImplemented("to_json"))
-    );
-    assert_eq!(
-        export_bpmn(&file),
-        Err(ApplicationError::NotImplemented("export_bpmn"))
     );
 }
 
@@ -696,6 +852,7 @@ fn syntax_contracts_reserve_source_fidelity_and_recovery_shapes() {
         .with_span(span)
         .with_token_range(TokenRange::new(0, 1))
         .with_text_name("Example")
+        .with_display_name("Example label")
         .with_children(vec![SyntaxNodeId(1)])
         .mark_recovered();
     let document = SyntaxDocument {
@@ -720,6 +877,7 @@ fn syntax_contracts_reserve_source_fidelity_and_recovery_shapes() {
     assert_eq!(diagnostic.metadata.related_spans, vec![span]);
     assert_eq!(document.root_node(), Some(&node));
     assert_eq!(document.node(SyntaxNodeId(0)), Some(&node));
+    assert_eq!(node.display_name.as_deref(), Some("Example label"));
     assert_eq!(document.comments().count(), 1);
     assert_eq!(document.trivia_slice(token.leading_trivia), Some(&document.trivia[0..1]));
 }

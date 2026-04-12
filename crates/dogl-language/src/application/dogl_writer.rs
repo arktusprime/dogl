@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::domain::{
-    Collab, DoglFile, Element, EventCode, GatewayCode, Layout, Pool, TaskCode,
+    name_from_id, Collab, DoglFile, Element, EventCode, GatewayCode, Layout, Pool, TaskCode,
 };
 use crate::domain::Identifiable;
 
@@ -98,6 +98,12 @@ fn render_collab_layout(collab: &Collab, lines: &mut Vec<String>) -> Result<(), 
 
 fn render_element_header(element: &Element) -> String {
     let mut line = render_element_marker(element);
+    if let Some(display_name) = render_element_display_name(element) {
+        line.push(' ');
+        line.push('"');
+        line.push_str(display_name);
+        line.push('"');
+    }
     let expressions = match element {
         Element::Event(event) => &event.expressions,
         Element::Task(task) => &task.expressions,
@@ -139,6 +145,20 @@ fn render_element_marker(element: &Element) -> String {
             GatewayCode::EventBased => format!("<eb> {}", gateway.id),
         },
         Element::Artifact(artifact) => format!("{{}} {}", artifact.id),
+    }
+}
+
+fn render_element_display_name(element: &Element) -> Option<&str> {
+    match element {
+        Element::Event(event) if event.name != name_from_id(&event.id) => Some(event.name.as_str()),
+        Element::Task(task) if task.name != name_from_id(&task.id) => Some(task.name.as_str()),
+        Element::Gateway(gateway) if gateway.name != name_from_id(&gateway.id) => {
+            Some(gateway.name.as_str())
+        }
+        Element::Artifact(artifact) if artifact.name != name_from_id(&artifact.id) => {
+            Some(artifact.name.as_str())
+        }
+        _ => None,
     }
 }
 

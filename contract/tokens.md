@@ -163,6 +163,28 @@ Element tokens are the shape plus optional code. **Longest match** for codes (e.
 
 ---
 
+## 4.1 Flow cardinality rules for flow objects
+
+DOGL is BPMN-compatible at the schema level, so flow-object cardinality must follow BPMN-aligned modeling constraints.
+
+These rules are semantic validation rules, not lexer rules:
+
+| Flow object family | Incoming sequence flows | Outgoing sequence flows | Notes |
+|---|---|---|---|
+| `StartEvent` | `0` | `1` | A start event must have exactly one outgoing sequence flow and no incoming sequence flows. |
+| `EndEvent` | `1` | `0` | An end event must have exactly one incoming sequence flow and no outgoing sequence flows. |
+| `Activity` family including `Task` and `CallActivity` | `1` | `1` | Activities are not used as split or merge nodes. If branching or joining is needed, use a gateway. |
+| Outgoing gateway | `1` | `2+` | Use for split semantics. One incoming sequence flow, two or more outgoing sequence flows. |
+| Incoming gateway | `2+` | `1` | Use for merge semantics. Two or more incoming sequence flows, one outgoing sequence flow. |
+
+Additional rules:
+
+- a single gateway instance must not be used as both a merge and a split in the same simplified authoring step;
+- if a model needs both behaviors in one area, use separate gateway objects for merge and split intent;
+- `=>d` is only valid on an outgoing gateway and counts as one of its outgoing sequence flows.
+
+---
+
 ## 5. Bracket commands (on elements)
 
 ### `[command] value`

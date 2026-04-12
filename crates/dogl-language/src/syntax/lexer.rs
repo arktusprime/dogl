@@ -145,7 +145,8 @@ impl<'a> Lexer<'a> {
         let bytes = line.as_bytes();
         let mut idx = indent;
         while idx < line.len() {
-            match bytes[idx] as char {
+            let ch = line[idx..].chars().next().unwrap();
+            match ch {
                 ' ' => {
                     idx += 1;
                 }
@@ -171,6 +172,16 @@ impl<'a> Lexer<'a> {
                     self.push_token(TokenKind::StageMarker, line_number, line_offset + idx, 2, "||");
                     idx += 2;
                 }
+                '<' if line[idx..].starts_with("<eb>") => {
+                    self.push_token(
+                        TokenKind::GatewayEventBasedMarker,
+                        line_number,
+                        line_offset + idx,
+                        4,
+                        "<eb>",
+                    );
+                    idx += 4;
+                }
                 '<' if line[idx..].starts_with("<x>") => {
                     self.push_token(
                         TokenKind::GatewayExclusiveMarker,
@@ -191,6 +202,26 @@ impl<'a> Lexer<'a> {
                     );
                     idx += 3;
                 }
+                '<' if line[idx..].starts_with("<c>") => {
+                    self.push_token(
+                        TokenKind::GatewayComplexMarker,
+                        line_number,
+                        line_offset + idx,
+                        3,
+                        "<c>",
+                    );
+                    idx += 3;
+                }
+                '<' if line[idx..].starts_with("<i>") => {
+                    self.push_token(
+                        TokenKind::GatewayInclusiveMarker,
+                        line_number,
+                        line_offset + idx,
+                        3,
+                        "<i>",
+                    );
+                    idx += 3;
+                }
                 '<' if line[idx..].starts_with("<>") => {
                     self.push_token(
                         TokenKind::GatewayMarker,
@@ -203,6 +234,18 @@ impl<'a> Lexer<'a> {
                 }
                 '=' if line[idx..].starts_with("=>") => {
                     self.push_token(TokenKind::FlowArrow, line_number, line_offset + idx, 2, "=>");
+                    idx += 2;
+                }
+                '-' if line[idx..].starts_with("->") => {
+                    self.push_token(TokenKind::FlowArrow, line_number, line_offset + idx, 2, "->");
+                    idx += 2;
+                }
+                '~' if line[idx..].starts_with("~>") => {
+                    self.push_token(TokenKind::FlowArrow, line_number, line_offset + idx, 2, "~>");
+                    idx += 2;
+                }
+                '.' if line[idx..].starts_with(".>") => {
+                    self.push_token(TokenKind::FlowArrow, line_number, line_offset + idx, 2, ".>");
                     idx += 2;
                 }
                 '(' if line[idx..].starts_with("(s)") => {
@@ -257,6 +300,18 @@ impl<'a> Lexer<'a> {
                 }
                 '[' => {
                     if let Some((width, command)) = parse_bracket_command(&line[idx..]) {
+                        if idx == indent && is_task_marker_code(&command) {
+                            let span =
+                                self.span(line_number, line_offset + idx, line_offset + idx + width);
+                            self.document.push_token(SyntaxToken::new(
+                                TokenKind::TaskMarker,
+                                span,
+                                format!("[{}]", command),
+                            ));
+                            idx += width;
+                            continue;
+                        }
+
                         let span =
                             self.span(line_number, line_offset + idx, line_offset + idx + width);
                         self.document.push_token(SyntaxToken::new(
@@ -357,9 +412,14 @@ impl<'a> Lexer<'a> {
                 }
                 ch if is_identifier_start(ch) => {
                     let start = idx;
-                    idx += 1;
-                    while idx < line.len() && is_identifier_char(bytes[idx] as char) {
-                        idx += 1;
+                    idx += ch.len_utf8();
+                    while idx < line.len() {
+                        let next_ch = line[idx..].chars().next().unwrap();
+                        if is_identifier_char(next_ch) {
+                            idx += next_ch.len_utf8();
+                        } else {
+                            break;
+                        }
                     }
                     let text = &line[start..idx];
                     let kind = if text == "collab" {
@@ -373,9 +433,10 @@ impl<'a> Lexer<'a> {
                     self.document.push_token(SyntaxToken::new(kind, span, text));
                 }
                 _ => {
-                    let ch = &line[idx..idx + 1];
-                    self.push_unknown(line_number, line_offset + idx, ch);
-                    idx += 1;
+                    let ch_len = ch.len_utf8();
+                    let ch_str = &line[idx..idx + ch_len];
+                    self.push_unknown(line_number, line_offset + idx, ch_str);
+                    idx += ch_len;
                 }
             }
         }
@@ -489,11 +550,15 @@ impl<'a> Lexer<'a> {
 }
 
 fn is_identifier_start(ch: char) -> bool {
-    ch.is_ascii_alphabetic() || ch == '_'
+    ch.is_alphabetic() || ch == '_'
 }
 
 fn is_identifier_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || ch == '_'
+    ch.is_alphanumeric() || ch == '_'
+}
+
+fn is_task_marker_code(command: &str) -> bool {
+    matches!(command, "m" | "u" | "st" | "rt" | "se" | "sc" | "bu")
 }
 
 fn parse_bracket_command(input: &str) -> Option<(usize, String)> {

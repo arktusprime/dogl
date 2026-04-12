@@ -116,6 +116,9 @@ impl<'a> Resolver<'a> {
 
         let mut collab = Collab::new(self.allocator.next(), collab_id);
         let mut layout = Layout::default();
+        let mut element_uids = HashMap::new();
+        let mut pending_flows = Vec::new();
+
         for child_id in &node.children {
             let Some(pool_node) = self.document.node(*child_id) else {
                 continue;
@@ -123,8 +126,59 @@ impl<'a> Resolver<'a> {
             if pool_node.kind != SyntaxKind::Pool {
                 continue;
             }
-            if let Some(pool) = self.lower_pool(pool_node, &mut layout) {
+            if let Some(pool) = self.lower_pool(pool_node, &mut layout, &mut element_uids, &mut pending_flows) {
                 collab.pools.push(pool);
+            }
+        }
+
+        for pending in pending_flows {
+            let Some(to_uid) = element_uids.get(&pending.target_id).copied() else {
+                self.resolution_summary.unresolved_references += 1;
+                self.diagnostics.push(ResolverDiagnostic::new(
+                    ResolverDiagnosticSeverity::Error,
+                    format!("Unknown flow target `{}`", pending.target_id),
+                ));
+                continue;
+            };
+
+            self.resolution_summary.resolved_references += 1;
+            let flow = Flow::new(self.allocator.next(), pending.from_uid, to_uid, pending.flow_type);
+            
+            if pending.flow_type == FlowType::Message {
+                if let Err(err) = collab.add_message_flow(flow) {
+                    self.diagnostics.push(ResolverDiagnostic::new(
+                        ResolverDiagnosticSeverity::Error,
+                        format!("Failed to add message flow: {err:?}"),
+                    ));
+                }
+            } else {
+                let mut added = false;
+                for pool in &mut collab.pools {
+                    let mut in_pool = false;
+                    for q in &pool.quadrants {
+                        if q.elements.iter().any(|e| crate::domain::Identifiable::uid(e) == pending.from_uid) {
+                            in_pool = true;
+                            break;
+                        }
+                    }
+                    
+                    if in_pool {
+                        if let Err(err) = pool.add_sequence_flow(flow.clone()) {
+                            self.diagnostics.push(ResolverDiagnostic::new(
+                                ResolverDiagnosticSeverity::Error,
+                                format!("Failed to add sequence flow: {err:?}"),
+                            ));
+                        }
+                        added = true;
+                        break;
+                    }
+                }
+                if !added {
+                    self.diagnostics.push(ResolverDiagnostic::new(
+                        ResolverDiagnosticSeverity::Error,
+                        format!("Could not find pool for flow from uid {}", pending.from_uid),
+                    ));
+                }
             }
         }
 
@@ -145,7 +199,13 @@ impl<'a> Resolver<'a> {
         Some(collab)
     }
 
-    fn lower_pool(&mut self, node: &SyntaxNode, layout: &mut Layout) -> Option<Pool> {
+    fn lower_pool(
+        &mut self,
+        node: &SyntaxNode,
+        layout: &mut Layout,
+        element_uids: &mut HashMap<String, Uid>,
+        pending_flows: &mut Vec<PendingFlow>,
+    ) -> Option<Pool> {
         let pool_id = node.text_name.clone()?;
         self.binding_summary.bound_names += 1;
 
@@ -153,8 +213,6 @@ impl<'a> Resolver<'a> {
         self.capture_layout_bounds(node, pool.uid, layout);
         let mut lane_ids = HashSet::new();
         let mut stage_ids = HashSet::new();
-        let mut element_uids = HashMap::new();
-        let mut pending_flows = Vec::new();
 
         for child_id in &node.children {
             let Some(lane_node) = self.document.node(*child_id) else {
@@ -170,29 +228,9 @@ impl<'a> Resolver<'a> {
                 layout,
                 &mut lane_ids,
                 &mut stage_ids,
-                &mut element_uids,
-                &mut pending_flows,
+                element_uids,
+                pending_flows,
             );
-        }
-
-        for pending in pending_flows {
-            let Some(to_uid) = element_uids.get(&pending.target_id).copied() else {
-                self.resolution_summary.unresolved_references += 1;
-                self.diagnostics.push(ResolverDiagnostic::new(
-                    ResolverDiagnosticSeverity::Error,
-                    format!("Unknown flow target `{}`", pending.target_id),
-                ));
-                continue;
-            };
-
-            self.resolution_summary.resolved_references += 1;
-            let flow = Flow::new(self.allocator.next(), pending.from_uid, to_uid, FlowType::Sequence);
-            if let Err(err) = pool.add_sequence_flow(flow) {
-                self.diagnostics.push(ResolverDiagnostic::new(
-                    ResolverDiagnosticSeverity::Error,
-                    format!("Failed to add sequence flow: {err:?}"),
-                ));
-            }
         }
 
         Some(pool)
@@ -308,6 +346,7 @@ impl<'a> Resolver<'a> {
 
     fn lower_event(&mut self, node: &SyntaxNode) -> Option<(Element, Vec<PendingFlow>)> {
         let id = node.text_name.clone()?;
+        let name = self.element_name(node, &id);
         let code = match self.first_token_kind(node) {
             Some(TokenKind::EventMarker) => EventCode::Inferred,
             Some(TokenKind::EventStartMarker) => EventCode::Start,
@@ -322,7 +361,7 @@ impl<'a> Resolver<'a> {
         let event = Event {
             uid,
             id: id.clone(),
-            name: name_from_id(&id),
+            name,
             code,
             expressions,
         };
@@ -331,13 +370,27 @@ impl<'a> Resolver<'a> {
 
     fn lower_task(&mut self, node: &SyntaxNode) -> Option<(Element, Vec<PendingFlow>)> {
         let id = node.text_name.clone()?;
-        let code = if self.first_token_kind(node) == Some(TokenKind::BracketCommand)
-            && self
-                .token_slice(node)
-                .first()
-                .is_some_and(|token| token.text == "call")
-        {
-            TaskCode::CallActivity
+        let name = self.element_name(node, &id);
+        
+        let first_token = self.token_slice(node).first();
+        let code = if let Some(token) = first_token {
+            if token.kind == TokenKind::TaskMarker {
+                match token.text.as_str() {
+                    "[]" => TaskCode::Generic,
+                    "[m]" => TaskCode::Manual,
+                    "[u]" => TaskCode::User,
+                    "[st]" => TaskCode::Service,
+                    "[rt]" => TaskCode::Receive,
+                    "[se]" => TaskCode::Send,
+                    "[sc]" => TaskCode::Script,
+                    "[bu]" => TaskCode::BusinessRule,
+                    _ => TaskCode::Generic,
+                }
+            } else if token.kind == TokenKind::BracketCommand && token.text == "call" {
+                TaskCode::CallActivity
+            } else {
+                TaskCode::Generic
+            }
         } else {
             TaskCode::Generic
         };
@@ -349,7 +402,7 @@ impl<'a> Resolver<'a> {
         let task = Task {
             uid,
             id: id.clone(),
-            name: name_from_id(&id),
+            name,
             code,
             call_target: (code == TaskCode::CallActivity).then(|| id.clone()),
             expressions,
@@ -359,9 +412,13 @@ impl<'a> Resolver<'a> {
 
     fn lower_gateway(&mut self, node: &SyntaxNode) -> Option<(Element, Vec<PendingFlow>)> {
         let id = node.text_name.clone()?;
+        let name = self.element_name(node, &id);
         let code = match self.first_token_kind(node) {
             Some(TokenKind::GatewayExclusiveMarker) => GatewayCode::Exclusive,
             Some(TokenKind::GatewayParallelMarker) => GatewayCode::Parallel,
+            Some(TokenKind::GatewayEventBasedMarker) => GatewayCode::EventBased,
+            Some(TokenKind::GatewayInclusiveMarker) => GatewayCode::Inclusive,
+            Some(TokenKind::GatewayComplexMarker) => GatewayCode::Complex,
             _ => GatewayCode::Inclusive,
         };
 
@@ -375,7 +432,7 @@ impl<'a> Resolver<'a> {
         let gateway = Gateway {
             uid,
             id: id.clone(),
-            name: name_from_id(&id),
+            name,
             code,
             dmn_ref,
             expressions,
@@ -427,9 +484,16 @@ impl<'a> Resolver<'a> {
             .filter_map(|child_id| self.document.node(*child_id))
             .filter(|child| child.kind == SyntaxKind::Flow)
             .filter_map(|child| {
+                let first_token = self.token_slice(child).first()?;
+                let flow_type = match first_token.text.as_str() {
+                    "->" | "~>" => FlowType::Message,
+                    ".>" => FlowType::DataAssociation,
+                    _ => FlowType::Sequence,
+                };
                 Some(PendingFlow {
                     from_uid,
                     target_id: child.text_name.clone()?,
+                    flow_type,
                 })
             })
             .collect()
@@ -473,6 +537,12 @@ impl<'a> Resolver<'a> {
         if let Some(bounds) = self.collect_bounds(node) {
             layout.set(uid, bounds);
         }
+    }
+
+    fn element_name(&self, node: &SyntaxNode, id: &str) -> String {
+        node.display_name
+            .clone()
+            .unwrap_or_else(|| name_from_id(id))
     }
 
     fn lower_layout_section(&mut self, node: &SyntaxNode, collab: &Collab) -> Option<Layout> {
@@ -585,6 +655,7 @@ impl<'a> Resolver<'a> {
 struct PendingFlow {
     from_uid: Uid,
     target_id: String,
+    flow_type: FlowType,
 }
 
 #[derive(Debug, Default)]

@@ -25,6 +25,7 @@ pub struct SyntaxNode {
     pub token_range: Option<TokenRange>,
     pub children: Vec<SyntaxNodeId>,
     pub text_name: Option<String>,
+    pub display_name: Option<String>,
     pub has_recovery: bool,
 }
 
@@ -182,6 +183,7 @@ impl SyntaxNode {
             token_range: None,
             children: Vec::new(),
             text_name: None,
+            display_name: None,
             has_recovery: false,
         }
     }
@@ -198,6 +200,11 @@ impl SyntaxNode {
 
     pub fn with_text_name(mut self, text_name: impl Into<String>) -> Self {
         self.text_name = Some(text_name.into());
+        self
+    }
+
+    pub fn with_display_name(mut self, display_name: impl Into<String>) -> Self {
+        self.display_name = Some(display_name.into());
         self
     }
 

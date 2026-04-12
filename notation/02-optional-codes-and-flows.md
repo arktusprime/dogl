@@ -95,4 +95,29 @@ These may share a common abstraction in code, but they should not be explained a
 
 ---
 
+## BPMN-compatible flow cardinality
+
+DOGL process schemas should follow BPMN-compatible flow cardinality for flow objects.
+
+Use these authoring rules:
+
+| Object | Incoming `=>` flows | Outgoing `=>` flows | Guidance |
+| --- | --- | --- | --- |
+| Start event `(s)` | `0` | `1` | Start events begin a path and must not be used as joins or branching points. |
+| End event `(e)` | `1` | `0` | End events terminate a path and must not continue control flow. |
+| Task family including `[call]` | `1` | `1` | Tasks and call activities should represent work, not split or merge logic. |
+| Outgoing gateway | `1` | `2+` | Use a gateway when one path must branch into multiple alternatives or parallels. |
+| Incoming gateway | `2+` | `1` | Use a gateway when multiple paths must be joined into one. |
+
+Practical guidance:
+
+- if a task or call activity appears to need multiple outgoing flows, insert an outgoing gateway after it;
+- if a task or call activity appears to need multiple incoming flows, insert an incoming gateway before it;
+- if one area needs both join and split behavior, prefer two gateways rather than one overloaded node;
+- treat `=>d` as one of the outgoing flows of an outgoing gateway.
+
+This keeps `.dogl` schemas readable and aligned with BPMN-style control-flow structure.
+
+---
+
 **Next:** [Part 3 - Expressions and DMN](03-expressions-and-dmn.md)
