@@ -7,7 +7,15 @@ use crate::domain::{
 use crate::domain::Identifiable;
 use crate::domain::name_from_id;
 
-use super::{ApplicationError, BpmnExport};
+use crate::application::{ApplicationError, BpmnExport, BpmnExporter};
+
+pub struct BpmnWriterAdapter;
+
+impl BpmnExporter for BpmnWriterAdapter {
+    fn export_bpmn(&self, file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
+        render(file)
+    }
+}
 
 pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
     if file.collabs.len() != 1 {
@@ -67,11 +75,11 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let source_id = ids
             .node_ids
             .get(&record.flow.from_uid)
-            .expect("source node id must exist for message flow");
+            .ok_or_else(|| ApplicationError::Serialize("source node id must exist for message flow".to_string()))?;
         let target_id = ids
             .node_ids
             .get(&record.flow.to_uid)
-            .expect("target node id must exist for message flow");
+            .ok_or_else(|| ApplicationError::Serialize("target node id must exist for message flow".to_string()))?;
         xml.push_str(&format!(
             r#"    <bpmn:messageFlow id="{}" sourceRef="{}" targetRef="{}" />"#,
             record.id, source_id, target_id
@@ -93,18 +101,18 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let lane_xml_id = ids
             .lane_ids
             .get(&lane.uid)
-            .expect("lane id must exist");
+            .ok_or_else(|| ApplicationError::Serialize("lane id must exist".to_string()))?;
         xml.push_str(&format!(
             r#"      <bpmn:lane id="{}" name="{}">"#,
             lane_xml_id,
             escape_attr(lane.id.as_str())
         ));
         xml.push('\n');
-        for record in element_records.iter().filter(|record| record.lane_id == lane.id) {
+        for record in element_records.iter().filter(|record| record.lane_id == lane.id.as_str()) {
             let node_id = ids
                 .node_ids
                 .get(&record.uid)
-                .expect("node id must exist");
+                .ok_or_else(|| ApplicationError::Serialize("node id must exist".to_string()))?;
             xml.push_str(&format!(
                 r#"        <bpmn:flowNodeRef>{}</bpmn:flowNodeRef>"#,
                 node_id
@@ -132,7 +140,7 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let node_id = ids
             .node_ids
             .get(&record.uid)
-            .expect("node id must exist");
+            .ok_or_else(|| ApplicationError::Serialize("node id must exist".to_string()))?;
         render_element_opening(&mut xml, record, node_id, &incoming, &outgoing)?;
         xml.push('\n');
         for flow_id in incoming.get(&record.uid).into_iter().flatten() {
@@ -151,11 +159,11 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let source_id = ids
             .node_ids
             .get(&record.flow.from_uid)
-            .expect("source node id must exist");
+            .ok_or_else(|| ApplicationError::Serialize("source node id must exist".to_string()))?;
         let target_id = ids
             .node_ids
             .get(&record.flow.to_uid)
-            .expect("target node id must exist");
+            .ok_or_else(|| ApplicationError::Serialize("target node id must exist".to_string()))?;
         xml.push_str(&format!(
             r#"    <bpmn:sequenceFlow id="{}" sourceRef="{}" targetRef="{}" />"#,
             record.id, source_id, target_id
@@ -193,7 +201,7 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let lane_xml_id = ids
             .lane_ids
             .get(&lane.uid)
-            .expect("lane id must exist");
+            .ok_or_else(|| ApplicationError::Serialize("lane id must exist".to_string()))?;
         xml.push_str(&format!(
             r#"      <bpmndi:BPMNShape id="{}_di" bpmnElement="{}" isHorizontal="true">"#,
             lane_xml_id, lane_xml_id
@@ -214,7 +222,7 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let node_id = ids
             .node_ids
             .get(&record.uid)
-            .expect("node id must exist");
+            .ok_or_else(|| ApplicationError::Serialize("node id must exist".to_string()))?;
         xml.push_str(&format!(
             r#"      <bpmndi:BPMNShape id="{}_di" bpmnElement="{}"{}>"#,
             node_id,
@@ -244,11 +252,11 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let source = element_records
             .iter()
             .find(|element| element.uid == record.flow.from_uid)
-            .expect("source element must exist");
+            .ok_or_else(|| ApplicationError::Serialize("source element must exist".to_string()))?;
         let target = element_records
             .iter()
             .find(|element| element.uid == record.flow.to_uid)
-            .expect("target element must exist");
+            .ok_or_else(|| ApplicationError::Serialize("target element must exist".to_string()))?;
         let waypoints = derive_waypoints(&source.bounds, &target.bounds);
         xml.push_str(&format!(
             r#"      <bpmndi:BPMNEdge id="{}_di" bpmnElement="{}">"#,
@@ -270,11 +278,11 @@ pub fn render(file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
         let source = element_records
             .iter()
             .find(|element| element.uid == record.flow.from_uid)
-            .expect("source element must exist for message flow");
+            .ok_or_else(|| ApplicationError::Serialize("source element must exist for message flow".to_string()))?;
         let target = element_records
             .iter()
             .find(|element| element.uid == record.flow.to_uid)
-            .expect("target element must exist for message flow");
+            .ok_or_else(|| ApplicationError::Serialize("target element must exist for message flow".to_string()))?;
         let waypoints = derive_waypoints(&source.bounds, &target.bounds);
         xml.push_str(&format!(
             r#"      <bpmndi:BPMNEdge id="{}_di" bpmnElement="{}">"#,
@@ -526,10 +534,10 @@ fn gateway_direction(incoming: usize, outgoing: usize) -> &'static str {
 
 fn exported_element_name(element: &Element) -> &str {
     match element {
-        Element::Event(event) => explicit_alias_or_id(&event.name, &event.id),
-        Element::Task(task) => explicit_alias_or_id(&task.name, &task.id),
-        Element::Gateway(gateway) => explicit_alias_or_id(&gateway.name, &gateway.id),
-        Element::Artifact(artifact) => explicit_alias_or_id(&artifact.name, &artifact.id),
+        Element::Event(event) => explicit_alias_or_id(&event.name, event.id.as_str()),
+        Element::Task(task) => explicit_alias_or_id(&task.name, task.id.as_str()),
+        Element::Gateway(gateway) => explicit_alias_or_id(&gateway.name, gateway.id.as_str()),
+        Element::Artifact(artifact) => explicit_alias_or_id(&artifact.name, artifact.id.as_str()),
     }
 }
 
@@ -719,7 +727,7 @@ mod tests {
         let mut quadrant = Quadrant::new(4, "Ops", "Default");
         quadrant.elements.push(Element::Artifact(crate::domain::Artifact {
             uid: 10,
-            id: "Doc".to_string(),
+            id: "Doc".to_string().into(),
             name: name_from_id("Doc"),
             code: crate::domain::ArtifactCode::Default,
             expressions: vec![],
@@ -744,14 +752,14 @@ mod tests {
         let mut quadrant = Quadrant::new(4, "Ops", "Default");
         quadrant.elements.push(Element::Event(Event {
             uid: 10,
-            id: "Start".to_string(),
+            id: "Start".to_string().into(),
             name: name_from_id("Start"),
             code: EventCode::Start,
             expressions: vec![],
         }));
         quadrant.elements.push(Element::Task(Task {
             uid: 11,
-            id: "ChildProcess".to_string(),
+            id: "ChildProcess".to_string().into(),
             name: name_from_id("ChildProcess"),
             code: TaskCode::CallActivity,
             call_target: Some("ChildProcess".to_string()),
@@ -759,7 +767,7 @@ mod tests {
         }));
         quadrant.elements.push(Element::Event(Event {
             uid: 12,
-            id: "Done".to_string(),
+            id: "Done".to_string().into(),
             name: name_from_id("Done"),
             code: EventCode::End,
             expressions: vec![],

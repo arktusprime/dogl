@@ -3,9 +3,6 @@
 //! These functions reserve stable host-facing boundaries while deferring parser,
 //! lowering, adapter, and serialization behavior.
 
-mod dogl_writer;
-mod bpmn_writer;
-
 use crate::{
     layout,
     domain::DoglFile,
@@ -14,10 +11,21 @@ use crate::{
     validation::{self, ValidationReport, ValidationSourceMap},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+pub trait BpmnExporter {
+    fn export_bpmn(&self, file: &DoglFile) -> Result<BpmnExport, ApplicationError>;
+}
+
+pub trait DoglExporter {
+    fn render_dogl(&self, file: &DoglFile) -> Result<String, ApplicationError>;
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ApplicationError {
+    #[error("application surface `{0}` is not implemented")]
     NotImplemented(&'static str),
-    Layout(String),
+    #[error("layout error: {0}")]
+    Layout(#[from] crate::layout::LayoutError),
+    #[error("serialization error: {0}")]
     Serialize(String),
 }
 
@@ -92,7 +100,7 @@ pub fn validate_for_layout(output: &ParseOutput) -> LayoutValidation {
 }
 
 pub fn apply_layout(file: &DoglFile) -> Result<DoglFile, ApplicationError> {
-    layout::compute(file).map_err(|err| ApplicationError::Layout(err.to_string()))
+    layout::compute(file).map_err(ApplicationError::Layout)
 }
 
 pub fn layout_parse_output(output: &ParseOutput) -> Result<LayoutStageOutput, ApplicationError> {
@@ -118,18 +126,18 @@ pub fn layout_parse_output(output: &ParseOutput) -> Result<LayoutStageOutput, Ap
     })
 }
 
-pub fn render_dogl(file: &DoglFile) -> Result<String, ApplicationError> {
-    dogl_writer::render(file)
+pub fn render_dogl(file: &DoglFile, exporter: &impl DoglExporter) -> Result<String, ApplicationError> {
+    exporter.render_dogl(file)
 }
 
 pub fn to_json(_file: &DoglFile) -> Result<JsonOutput, ApplicationError> {
     Err(ApplicationError::NotImplemented("to_json"))
 }
 
-pub fn import_bpmn(xml: &str) -> ParseOutput {
-    parse(xml)
+pub fn import_bpmn(_xml: &str) -> Result<ParseOutput, ApplicationError> {
+    Err(ApplicationError::NotImplemented("import_bpmn"))
 }
 
-pub fn export_bpmn(_file: &DoglFile) -> Result<BpmnExport, ApplicationError> {
-    bpmn_writer::render(_file)
+pub fn export_bpmn(file: &DoglFile, exporter: &impl BpmnExporter) -> Result<BpmnExport, ApplicationError> {
+    exporter.export_bpmn(file)
 }

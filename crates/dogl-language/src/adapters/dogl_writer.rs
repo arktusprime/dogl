@@ -5,7 +5,15 @@ use crate::domain::{
 };
 use crate::domain::Identifiable;
 
-use super::ApplicationError;
+use crate::application::{ApplicationError, DoglExporter};
+
+pub struct DoglWriterAdapter;
+
+impl DoglExporter for DoglWriterAdapter {
+    fn render_dogl(&self, file: &DoglFile) -> Result<String, ApplicationError> {
+        render(file)
+    }
+}
 
 const INDENT: &str = "    ";
 
@@ -40,7 +48,7 @@ fn render_collab_body(collab: &Collab, lines: &mut Vec<String>) {
         let lane_groups = lane_stage_groups(pool);
         for lane in &pool.lanes {
             lines.push(indent(2, format!("-- {}", lane.id)));
-            if let Some(stages) = lane_groups.get(&lane.id) {
+            if let Some(stages) = lane_groups.get(lane.id.as_str()) {
                 for stage in stages {
                     lines.push(indent(3, format!("|| {}", stage.stage_id)));
                     let outgoing = outgoing_targets(pool);
@@ -75,7 +83,7 @@ fn render_collab_layout(collab: &Collab, lines: &mut Vec<String>) -> Result<(), 
                 2,
                 format!("-- {}{}", lane.id, render_layout_bounds(layout, lane.uid)),
             ));
-            if let Some(stages) = lane_groups.get(&lane.id) {
+            if let Some(stages) = lane_groups.get(lane.id.as_str()) {
                 for stage in stages {
                     lines.push(indent(3, format!("|| {}", stage.stage_id)));
                     for element in &stage.elements {
@@ -150,12 +158,12 @@ fn render_element_marker(element: &Element) -> String {
 
 fn render_element_display_name(element: &Element) -> Option<&str> {
     match element {
-        Element::Event(event) if event.name != name_from_id(&event.id) => Some(event.name.as_str()),
-        Element::Task(task) if task.name != name_from_id(&task.id) => Some(task.name.as_str()),
-        Element::Gateway(gateway) if gateway.name != name_from_id(&gateway.id) => {
+        Element::Event(event) if event.name != name_from_id(event.id.as_str()) => Some(event.name.as_str()),
+        Element::Task(task) if task.name != name_from_id(task.id.as_str()) => Some(task.name.as_str()),
+        Element::Gateway(gateway) if gateway.name != name_from_id(gateway.id.as_str()) => {
             Some(gateway.name.as_str())
         }
-        Element::Artifact(artifact) if artifact.name != name_from_id(&artifact.id) => {
+        Element::Artifact(artifact) if artifact.name != name_from_id(artifact.id.as_str()) => {
             Some(artifact.name.as_str())
         }
         _ => None,
@@ -223,7 +231,7 @@ fn lane_stage_groups<'a>(pool: &'a Pool) -> HashMap<String, Vec<LaneStageGroup<'
     let mut groups = HashMap::<String, Vec<LaneStageGroup<'a>>>::new();
     for quadrant in &pool.quadrants {
         groups
-            .entry(quadrant.lane_id.clone())
+            .entry(quadrant.lane_id.to_string())
             .or_default()
             .push(LaneStageGroup {
                 stage_id: quadrant.stage_id.as_str(),

@@ -3,22 +3,77 @@
 
 /// Stable identity for entities within the aggregate. All in-code references use Uid.
 /// Generated at parse/create time; id↔uid mapping at parser/export boundary.
-pub type Uid = u128;
+pub type Uid = u64;
+
+macro_rules! impl_id {
+    ($name:ident) => {
+        impl $name {
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl From<String> for $name {
+            fn from(s: String) -> Self {
+                Self(s.into())
+            }
+        }
+        impl From<&str> for $name {
+            fn from(s: &str) -> Self {
+                Self(s.into())
+            }
+        }
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                &self.0
+            }
+        }
+        impl std::borrow::Borrow<str> for $name {
+            fn borrow(&self) -> &str {
+                &self.0
+            }
+        }
+        impl PartialEq<str> for $name {
+            fn eq(&self, other: &str) -> bool {
+                self.0 == other
+            }
+        }
+        impl PartialEq<&str> for $name {
+            fn eq(&self, other: &&str) -> bool {
+                self.0 == *other
+            }
+        }
+    };
+}
 
 /// Identifier for a collab (name, PascalCase by convention). Notation and display; references in code use Uid.
-pub type CollabId = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CollabId(pub smol_str::SmolStr);
+impl_id!(CollabId);
 
 /// Identifier for a pool within a collab.
-pub type PoolId = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PoolId(pub smol_str::SmolStr);
+impl_id!(PoolId);
 
 /// Identifier for a lane within a pool.
-pub type LaneId = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LaneId(pub smol_str::SmolStr);
+impl_id!(LaneId);
 
 /// Identifier for a stage within a pool.
-pub type StageId = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StageId(pub smol_str::SmolStr);
+impl_id!(StageId);
 
 /// Identifier for an element within its scope (pool or lane×stage).
-pub type ElementId = String;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ElementId(pub smol_str::SmolStr);
+impl_id!(ElementId);
 
 /// Generate display name from id when not given in notation (review1 §2.5).
 /// PascalCase → sentence, e.g. "StartOrder" → "Start order".

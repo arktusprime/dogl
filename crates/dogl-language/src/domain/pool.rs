@@ -107,22 +107,22 @@ mod tests {
 
     #[test]
     fn add_sequence_flow_valid_endpoints_ok() {
-        let uid_pool = 1u128;
-        let uid_a = 10u128;
-        let uid_b = 20u128;
+        let uid_pool = 1u64;
+        let uid_a = 10u64;
+        let uid_b = 20u64;
         let mut pool = Pool::new(uid_pool, "P1");
         let quad = Quadrant::new(2, "L1", "S1");
         let mut quad = quad;
         quad.elements.push(Element::Event(Event {
             uid: uid_a,
-            id: "A".to_string(),
+            id: "A".to_string().into(),
             name: name_from_id("A"),
             code: EventCode::Start,
             expressions: vec![],
         }));
         quad.elements.push(Element::Event(Event {
             uid: uid_b,
-            id: "B".to_string(),
+            id: "B".to_string().into(),
             name: name_from_id("B"),
             code: EventCode::End,
             expressions: vec![],

@@ -4,6 +4,7 @@ use std::{
 };
 
 use dogl_language::{export_bpmn, layout_parse_output, parse, render_dogl, validate_for_layout};
+use dogl_language::adapters::{bpmn_writer::BpmnWriterAdapter, dogl_writer::DoglWriterAdapter};
 
 const MAX_REPORTED_DIAGNOSTICS: usize = 50;
 
@@ -48,7 +49,9 @@ fn run_export_bpmn(path: &Path) -> Result<(), String> {
         .semantic_file
         .as_ref()
         .ok_or_else(|| "parse did not produce a semantic file".to_string())?;
-    let export = export_bpmn(file).map_err(render_application_error)?;
+    
+    let exporter = BpmnWriterAdapter;
+    let export = export_bpmn(file, &exporter).map_err(render_application_error)?;
     let output_path = path.with_extension("bpmn");
     fs::write(&output_path, export.xml)
         .map_err(|err| format!("failed to write `{}`: {err}", output_path.display()))?;
@@ -123,8 +126,12 @@ fn process_dogl_file(path: &Path) -> Result<ProcessedDoglFile, String> {
     let laid_out_file = stage
         .laid_out_file
         .ok_or_else(|| "layout stage did not produce a semantic file".to_string())?;
-    let rendered_dogl = render_dogl(&laid_out_file).map_err(render_application_error)?;
-    let bpmn_xml = export_bpmn(&laid_out_file)
+    
+    let dogl_exporter = DoglWriterAdapter;
+    let rendered_dogl = render_dogl(&laid_out_file, &dogl_exporter).map_err(render_application_error)?;
+    
+    let bpmn_exporter = BpmnWriterAdapter;
+    let bpmn_xml = export_bpmn(&laid_out_file, &bpmn_exporter)
         .map_err(render_application_error)?
         .xml;
 
@@ -172,13 +179,7 @@ fn format_validation_diagnostics(
 }
 
 fn render_application_error(err: dogl_language::ApplicationError) -> String {
-    match err {
-        dogl_language::ApplicationError::NotImplemented(name) => {
-            format!("application surface `{name}` is not implemented")
-        }
-        dogl_language::ApplicationError::Layout(message) => message,
-        dogl_language::ApplicationError::Serialize(message) => message,
-    }
+    err.to_string()
 }
 
 fn usage() -> &'static str {

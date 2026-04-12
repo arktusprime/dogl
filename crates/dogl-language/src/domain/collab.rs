@@ -61,7 +61,7 @@ pub fn layout_from_grouped(collab: &Collab, g: &LayoutGroupedByPool) -> Result<L
             .pools
             .iter()
             .find(|p| p.id == *pool_id)
-            .ok_or_else(|| DomainError::LayoutUnknownPoolId { pool_id: pool_id.clone() })?;
+            .ok_or_else(|| DomainError::LayoutUnknownPoolId { pool_id: pool_id.to_string() })?;
         if let Some(bounds) = &data.pool {
             layout.set(pool.uid, bounds.clone());
         }
@@ -71,8 +71,8 @@ pub fn layout_from_grouped(collab: &Collab, g: &LayoutGroupedByPool) -> Result<L
                 .iter()
                 .find(|l| l.id == *lane_id)
                 .ok_or_else(|| DomainError::LayoutUnknownLaneId {
-                    pool_id: pool_id.clone(),
-                    lane_id: lane_id.clone(),
+                    pool_id: pool_id.to_string(),
+                    lane_id: lane_id.to_string(),
                 })?;
             layout.set(lane.uid, bounds.clone());
         }
@@ -82,8 +82,8 @@ pub fn layout_from_grouped(collab: &Collab, g: &LayoutGroupedByPool) -> Result<L
                 .iter()
                 .find(|s| s.id == *stage_id)
                 .ok_or_else(|| DomainError::LayoutUnknownStageId {
-                    pool_id: pool_id.clone(),
-                    stage_id: stage_id.clone(),
+                    pool_id: pool_id.to_string(),
+                    stage_id: stage_id.to_string(),
                 })?;
             layout.set(stage.uid, bounds.clone());
         }
@@ -94,8 +94,8 @@ pub fn layout_from_grouped(collab: &Collab, g: &LayoutGroupedByPool) -> Result<L
                 .flat_map(|q| q.elements.iter())
                 .find(|e| e.id() == element_id)
                 .ok_or_else(|| DomainError::LayoutUnknownElementId {
-                    pool_id: pool_id.clone(),
-                    element_id: element_id.clone(),
+                    pool_id: pool_id.to_string(),
+                    element_id: element_id.to_string(),
                 })?;
             layout.set(element.uid(), bounds.clone());
         }
@@ -125,7 +125,7 @@ pub fn layout_to_grouped(collab: &Collab, layout: &Layout) -> LayoutGroupedByPoo
         for quad in &pool.quadrants {
             for el in &quad.elements {
                 if let Some(b) = layout.get(el.uid()) {
-                    elements.insert(el.id().to_string(), b.clone());
+                    elements.insert(el.id().clone(), b.clone());
                 }
             }
         }
@@ -150,22 +150,22 @@ mod tests {
     use crate::domain::value_objects::{name_from_id, FlowType};
 
     fn collab_with_two_elements_in_pool() -> Collab {
-        let uid_collab = 1u128;
-        let uid_pool = 2u128;
-        let uid_a = 10u128;
-        let uid_b = 20u128;
+        let uid_collab = 1u64;
+        let uid_pool = 2u64;
+        let uid_a = 10u64;
+        let uid_b = 20u64;
         let mut pool = Pool::new(uid_pool, "P1");
         let mut quad = crate::domain::pool::Quadrant::new(3, "L1", "S1");
         quad.elements.push(Element::Event(Event {
             uid: uid_a,
-            id: "A".to_string(),
+            id: "A".to_string().into(),
             name: name_from_id("A"),
             code: EventCode::Start,
             expressions: vec![],
         }));
         quad.elements.push(Element::Event(Event {
             uid: uid_b,
-            id: "B".to_string(),
+            id: "B".to_string().into(),
             name: name_from_id("B"),
             code: EventCode::End,
             expressions: vec![],
@@ -196,27 +196,27 @@ mod tests {
 
     /// Collab with one pool, one lane, one stage, two elements (for layout conversion tests).
     fn collab_with_pool_lane_stage_and_elements() -> Collab {
-        let uid_collab = 1u128;
-        let uid_pool = 2u128;
-        let uid_lane = 3u128;
-        let uid_stage = 4u128;
-        let uid_quad = 5u128;
-        let uid_a = 10u128;
-        let uid_b = 20u128;
+        let uid_collab = 1u64;
+        let uid_pool = 2u64;
+        let uid_lane = 3u64;
+        let uid_stage = 4u64;
+        let uid_quad = 5u64;
+        let uid_a = 10u64;
+        let uid_b = 20u64;
         let mut pool = Pool::new(uid_pool, "P1");
         pool.lanes.push(crate::domain::pool::Lane::new(uid_lane, "L1"));
         pool.stages.push(crate::domain::pool::Stage::new(uid_stage, "S1"));
         let mut quad = crate::domain::pool::Quadrant::new(uid_quad, "L1", "S1");
         quad.elements.push(Element::Event(Event {
             uid: uid_a,
-            id: "A".to_string(),
+            id: "A".to_string().into(),
             name: name_from_id("A"),
             code: EventCode::Start,
             expressions: vec![],
         }));
         quad.elements.push(Element::Event(Event {
             uid: uid_b,
-            id: "B".to_string(),
+            id: "B".to_string().into(),
             name: name_from_id("B"),
             code: EventCode::End,
             expressions: vec![],
@@ -240,15 +240,15 @@ mod tests {
         let elem_a_bounds = Bounds::new(10.0, 20.0, 80.0, 40.0).unwrap();
         let elem_b_bounds = Bounds::new(200.0, 20.0, 80.0, 40.0).unwrap();
         let mut lanes = HashMap::new();
-        lanes.insert("L1".to_string(), lane_bounds.clone());
+        lanes.insert("L1".to_string().into(), lane_bounds.clone());
         let mut stages = HashMap::new();
-        stages.insert("S1".to_string(), stage_bounds.clone());
+        stages.insert("S1".to_string().into(), stage_bounds.clone());
         let mut elements = HashMap::new();
-        elements.insert("A".to_string(), elem_a_bounds.clone());
-        elements.insert("B".to_string(), elem_b_bounds.clone());
+        elements.insert("A".to_string().into(), elem_a_bounds.clone());
+        elements.insert("B".to_string().into(), elem_b_bounds.clone());
         let mut grouped = HashMap::new();
         grouped.insert(
-            "P1".to_string(),
+            "P1".to_string().into(),
             PoolLayoutData {
                 pool: Some(pool_bounds.clone()),
                 lanes,
@@ -274,7 +274,7 @@ mod tests {
 
         let collab = collab_with_pool_lane_stage_and_elements();
         let mut grouped = HashMap::new();
-        grouped.insert("NoSuchPool".to_string(), PoolLayoutData::default());
+        grouped.insert("NoSuchPool".to_string().into(), PoolLayoutData::default());
         let err = layout_from_grouped(&collab, &grouped).unwrap_err();
         assert!(matches!(err, DomainError::LayoutUnknownPoolId { pool_id } if pool_id == "NoSuchPool"));
     }
@@ -287,10 +287,10 @@ mod tests {
 
         let collab = collab_with_pool_lane_stage_and_elements();
         let mut lanes = HashMap::new();
-        lanes.insert("NoSuchLane".to_string(), Bounds::new(0.0, 0.0, 100.0, 50.0).unwrap());
+        lanes.insert("NoSuchLane".to_string().into(), Bounds::new(0.0, 0.0, 100.0, 50.0).unwrap());
         let mut grouped = HashMap::new();
         grouped.insert(
-            "P1".to_string(),
+            "P1".to_string().into(),
             PoolLayoutData {
                 pool: None,
                 lanes,
@@ -314,10 +314,10 @@ mod tests {
 
         let collab = collab_with_pool_lane_stage_and_elements();
         let mut stages = HashMap::new();
-        stages.insert("NoSuchStage".to_string(), Bounds::new(0.0, 0.0, 120.0, 300.0).unwrap());
+        stages.insert("NoSuchStage".to_string().into(), Bounds::new(0.0, 0.0, 120.0, 300.0).unwrap());
         let mut grouped = HashMap::new();
         grouped.insert(
-            "P1".to_string(),
+            "P1".to_string().into(),
             PoolLayoutData {
                 pool: None,
                 lanes: HashMap::new(),
@@ -341,10 +341,10 @@ mod tests {
 
         let collab = collab_with_pool_lane_stage_and_elements();
         let mut elements = HashMap::new();
-        elements.insert("NoSuchElement".to_string(), Bounds::new(0.0, 0.0, 10.0, 10.0).unwrap());
+        elements.insert("NoSuchElement".to_string().into(), Bounds::new(0.0, 0.0, 10.0, 10.0).unwrap());
         let mut grouped = HashMap::new();
         grouped.insert(
-            "P1".to_string(),
+            "P1".to_string().into(),
             PoolLayoutData {
                 pool: None,
                 lanes: HashMap::new(),

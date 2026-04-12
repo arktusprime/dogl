@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    domain::{DoglFile, Element, EventCode, Pool, TaskCode, Uid},
+    domain::{DoglFile, Element, EventCode, Pool, TaskCode, Uid, CollabId, PoolId, ElementId},
     syntax::{Span, SyntaxDocument, SyntaxKind},
 };
 use crate::domain::Identifiable;
@@ -72,16 +72,16 @@ impl ValidationReport {
 enum SourceKey {
     File,
     Collab {
-        collab_id: String,
+        collab_id: CollabId,
     },
     Pool {
-        collab_id: String,
-        pool_id: String,
+        collab_id: CollabId,
+        pool_id: PoolId,
     },
     Element {
-        collab_id: String,
-        pool_id: String,
-        element_id: String,
+        collab_id: CollabId,
+        pool_id: PoolId,
+        element_id: ElementId,
     },
 }
 
@@ -115,7 +115,7 @@ impl ValidationSourceMap {
 
             source_map.remember(
                 SourceKey::Collab {
-                    collab_id: collab_name.clone(),
+                    collab_id: collab_name.clone().into(),
                 },
                 collab_node.span,
             );
@@ -134,8 +134,8 @@ impl ValidationSourceMap {
 
                 source_map.remember(
                     SourceKey::Pool {
-                        collab_id: collab_name.clone(),
-                        pool_id: pool_name.clone(),
+                        collab_id: collab_name.clone().into(),
+                        pool_id: pool_name.clone().into(),
                     },
                     pool_node.span,
                 );
@@ -173,9 +173,9 @@ impl ValidationSourceMap {
 
                             source_map.remember(
                                 SourceKey::Element {
-                                    collab_id: collab_name.clone(),
-                                    pool_id: pool_name.clone(),
-                                    element_id: element_name,
+                                    collab_id: collab_name.clone().into(),
+                                    pool_id: pool_name.clone().into(),
+                                    element_id: element_name.into(),
                                 },
                                 element_node.span,
                             );
@@ -195,7 +195,7 @@ impl ValidationSourceMap {
     pub fn collab_span(&self, collab_id: &str) -> Option<Span> {
         self.spans
             .get(&SourceKey::Collab {
-                collab_id: collab_id.to_string(),
+                collab_id: collab_id.into(),
             })
             .copied()
     }
@@ -203,8 +203,8 @@ impl ValidationSourceMap {
     pub fn pool_span(&self, collab_id: &str, pool_id: &str) -> Option<Span> {
         self.spans
             .get(&SourceKey::Pool {
-                collab_id: collab_id.to_string(),
-                pool_id: pool_id.to_string(),
+                collab_id: collab_id.into(),
+                pool_id: pool_id.into(),
             })
             .copied()
     }
@@ -212,9 +212,9 @@ impl ValidationSourceMap {
     pub fn element_span(&self, collab_id: &str, pool_id: &str, element_id: &str) -> Option<Span> {
         self.spans
             .get(&SourceKey::Element {
-                collab_id: collab_id.to_string(),
-                pool_id: pool_id.to_string(),
-                element_id: element_id.to_string(),
+                collab_id: collab_id.into(),
+                pool_id: pool_id.into(),
+                element_id: element_id.into(),
             })
             .copied()
     }
@@ -261,23 +261,23 @@ impl<'a> Validator<'a> {
             );
         }
 
-        let mut first_collab_spans = HashMap::<String, Option<Span>>::new();
-        let mut seen_collabs = HashSet::<String>::new();
+        let mut first_collab_spans = HashMap::<CollabId, Option<Span>>::new();
+        let mut seen_collabs = HashSet::<CollabId>::new();
         for collab in &self.file.collabs {
             if !seen_collabs.insert(collab.id.clone()) {
                 self.push_collab_error(
-                    &collab.id,
+                    collab.id.as_str(),
                     "DOGL2001",
                     format!("Duplicate collaboration id `{}`", collab.id),
                     first_collab_spans.get(&collab.id).copied().flatten(),
                 );
             } else {
-                first_collab_spans.insert(collab.id.clone(), self.collab_span(&collab.id));
+                first_collab_spans.insert(collab.id.clone(), self.collab_span(collab.id.as_str()));
             }
 
             if collab.pools.is_empty() {
                 self.push_collab_error(
-                    &collab.id,
+                    collab.id.as_str(),
                     "DOGL2002",
                     format!("Collaboration `{}` must contain at least one pool", collab.id),
                     None,
@@ -293,13 +293,13 @@ impl<'a> Validator<'a> {
     }
 
     fn validate_collab(&mut self, collab: &crate::domain::Collab) {
-        let mut first_pool_spans = HashMap::<String, Option<Span>>::new();
-        let mut seen_pools = HashSet::<String>::new();
+        let mut first_pool_spans = HashMap::<PoolId, Option<Span>>::new();
+        let mut seen_pools = HashSet::<PoolId>::new();
         for pool in &collab.pools {
             if !seen_pools.insert(pool.id.clone()) {
                 self.push_pool_error(
-                    &collab.id,
-                    &pool.id,
+                    collab.id.as_str(),
+                    pool.id.as_str(),
                     "DOGL2003",
                     format!(
                         "Duplicate pool id `{}` in collaboration `{}`",
@@ -309,10 +309,10 @@ impl<'a> Validator<'a> {
                 );
             } else {
                 first_pool_spans
-                    .insert(pool.id.clone(), self.pool_span(&collab.id, &pool.id));
+                    .insert(pool.id.clone(), self.pool_span(collab.id.as_str(), pool.id.as_str()));
             }
 
-            self.validate_pool(&collab.id, pool);
+            self.validate_pool(collab.id.as_str(), pool);
         }
     }
 
@@ -324,8 +324,8 @@ impl<'a> Validator<'a> {
             .collect();
         if elements.is_empty() {
             self.push_pool_error(
-                collab_id,
-                &pool.id,
+                    collab_id,
+                    pool.id.as_str(),
                 "DOGL2004",
                 format!("Pool `{}` must contain at least one element", pool.id),
                 None,
@@ -345,7 +345,7 @@ impl<'a> Validator<'a> {
             if !known_uids.contains(&flow.from_uid) {
                 self.push_pool_error(
                     collab_id,
-                    &pool.id,
+                    pool.id.as_str(),
                     "DOGL2205",
                     format!(
                         "Sequence flow in pool `{}` references unknown source uid `{}`",
@@ -357,7 +357,7 @@ impl<'a> Validator<'a> {
             if !known_uids.contains(&flow.to_uid) {
                 self.push_pool_error(
                     collab_id,
-                    &pool.id,
+                    pool.id.as_str(),
                     "DOGL2206",
                     format!(
                         "Sequence flow in pool `{}` references unknown target uid `{}`",
@@ -381,10 +381,10 @@ impl<'a> Validator<'a> {
         for element in &elements {
             let incoming_count = incoming.get(&element.uid()).copied().unwrap_or(0);
             let outgoing_count = outgoing.get(&element.uid()).copied().unwrap_or(0);
-            self.validate_element(collab_id, &pool.id, element, incoming_count, outgoing_count);
+            self.validate_element(collab_id, pool.id.as_str(), element, incoming_count, outgoing_count);
         }
 
-        self.validate_pool_components(collab_id, &pool.id, &elements_by_uid, &adjacency);
+        self.validate_pool_components(collab_id, pool.id.as_str(), &elements_by_uid, &adjacency);
     }
 
     fn validate_element(
@@ -406,7 +406,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &task.id,
+                        task.id.as_str(),
                         "DOGL2100",
                         format!(
                             "Call activity `{}` must declare a target process identifier",
@@ -419,7 +419,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &task.id,
+                        task.id.as_str(),
                         "DOGL2101",
                         format!(
                             "Task `{}` sets `call_target`, but only `[call]` tasks may do that",
@@ -432,7 +432,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &task.id,
+                        task.id.as_str(),
                         "DOGL2207",
                         format!(
                             "Element `{}` must have an incoming sequence flow",
@@ -445,7 +445,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &task.id,
+                        task.id.as_str(),
                         "DOGL2208",
                         format!(
                             "Element `{}` must have an outgoing sequence flow",
@@ -459,9 +459,9 @@ impl<'a> Validator<'a> {
                 EventCode::Start => {
                     if incoming_count > 0 {
                         self.push_element_error(
-                            collab_id,
-                            pool_id,
-                            &event.id,
+                        collab_id,
+                        pool_id,
+                        event.id.as_str(),
                             "DOGL2200",
                             format!("Start event `{}` must not have incoming sequence flows", event.id),
                             None,
@@ -469,9 +469,9 @@ impl<'a> Validator<'a> {
                     }
                     if outgoing_count == 0 {
                         self.push_element_error(
-                            collab_id,
-                            pool_id,
-                            &event.id,
+                        collab_id,
+                        pool_id,
+                        event.id.as_str(),
                             "DOGL2201",
                             format!("Start event `{}` must have an outgoing sequence flow", event.id),
                             None,
@@ -481,9 +481,9 @@ impl<'a> Validator<'a> {
                 EventCode::End => {
                     if outgoing_count > 0 {
                         self.push_element_error(
-                            collab_id,
-                            pool_id,
-                            &event.id,
+                        collab_id,
+                        pool_id,
+                        event.id.as_str(),
                             "DOGL2202",
                             format!("End event `{}` must not have outgoing sequence flows", event.id),
                             None,
@@ -491,9 +491,9 @@ impl<'a> Validator<'a> {
                     }
                     if incoming_count == 0 {
                         self.push_element_error(
-                            collab_id,
-                            pool_id,
-                            &event.id,
+                        collab_id,
+                        pool_id,
+                        event.id.as_str(),
                             "DOGL2203",
                             format!("End event `{}` must have an incoming sequence flow", event.id),
                             None,
@@ -503,9 +503,9 @@ impl<'a> Validator<'a> {
                 EventCode::Intermediate | EventCode::Inferred => {
                     if incoming_count == 0 {
                         self.push_element_error(
-                            collab_id,
-                            pool_id,
-                            &event.id,
+                        collab_id,
+                        pool_id,
+                        event.id.as_str(),
                             "DOGL2207",
                             format!(
                                 "Element `{}` must have an incoming sequence flow",
@@ -516,9 +516,9 @@ impl<'a> Validator<'a> {
                     }
                     if outgoing_count == 0 {
                         self.push_element_error(
-                            collab_id,
-                            pool_id,
-                            &event.id,
+                        collab_id,
+                        pool_id,
+                        event.id.as_str(),
                             "DOGL2208",
                             format!("Element `{}` must have an outgoing sequence flow", event.id),
                             None,
@@ -531,7 +531,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &gateway.id,
+                        gateway.id.as_str(),
                         "DOGL2207",
                         format!(
                             "Element `{}` must have an incoming sequence flow",
@@ -544,7 +544,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &gateway.id,
+                        gateway.id.as_str(),
                         "DOGL2208",
                         format!(
                             "Element `{}` must have an outgoing sequence flow",
@@ -559,7 +559,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &artifact.id,
+                        artifact.id.as_str(),
                         "DOGL2207",
                         format!(
                             "Element `{}` must have an incoming sequence flow",
@@ -572,7 +572,7 @@ impl<'a> Validator<'a> {
                     self.push_element_error(
                         collab_id,
                         pool_id,
-                        &artifact.id,
+                        artifact.id.as_str(),
                         "DOGL2208",
                         format!(
                             "Element `{}` must have an outgoing sequence flow",
@@ -637,11 +637,11 @@ impl<'a> Validator<'a> {
                 self.push_element_error(
                     collab_id,
                     pool_id,
-                    anchor.id(),
+                    anchor.id().as_str(),
                     "DOGL2210",
                     format!(
                         "Graph containing element `{}` must contain a Start event",
-                        anchor.id()
+                        anchor.id().as_str()
                     ),
                     None,
                 );
@@ -650,11 +650,11 @@ impl<'a> Validator<'a> {
                 self.push_element_error(
                     collab_id,
                     pool_id,
-                    anchor.id(),
+                    anchor.id().as_str(),
                     "DOGL2211",
                     format!(
                         "Graph containing element `{}` must contain an End event",
-                        anchor.id()
+                        anchor.id().as_str()
                     ),
                     None,
                 );

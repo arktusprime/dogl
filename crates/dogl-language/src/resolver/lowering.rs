@@ -2,7 +2,7 @@ use crate::{
     domain::{
         layout_from_grouped, Bounds, Collab, DoglFile, Element, Event, EventCode, Expression,
         Flow, FlowType, Gateway, GatewayCode, Lane, Layout, Pool, PoolLayoutData, Quadrant,
-        Stage, Task, TaskCode, Uid, Identifiable, name_from_id,
+        Stage, Task, TaskCode, Uid, Identifiable, name_from_id, PoolId, LaneId, StageId, ElementId
     },
     resolver::{
         BindingSummary, NameResolutionSummary, NormalizationPass, ResolverDiagnostic,
@@ -116,7 +116,7 @@ impl<'a> Resolver<'a> {
 
         let mut collab = Collab::new(self.allocator.next(), collab_id);
         let mut layout = Layout::default();
-        let mut element_uids = HashMap::new();
+        let mut element_uids = HashMap::<ElementId, Uid>::new();
         let mut pending_flows = Vec::new();
 
         for child_id in &node.children {
@@ -132,7 +132,7 @@ impl<'a> Resolver<'a> {
         }
 
         for pending in pending_flows {
-            let Some(to_uid) = element_uids.get(&pending.target_id).copied() else {
+            let Some(to_uid) = element_uids.get(crate::domain::ElementId(pending.target_id.clone().into()).as_str()).copied() else {
                 self.resolution_summary.unresolved_references += 1;
                 self.diagnostics.push(ResolverDiagnostic::new(
                     ResolverDiagnosticSeverity::Error,
@@ -203,7 +203,7 @@ impl<'a> Resolver<'a> {
         &mut self,
         node: &SyntaxNode,
         layout: &mut Layout,
-        element_uids: &mut HashMap<String, Uid>,
+        element_uids: &mut HashMap<ElementId, Uid>,
         pending_flows: &mut Vec<PendingFlow>,
     ) -> Option<Pool> {
         let pool_id = node.text_name.clone()?;
@@ -211,8 +211,8 @@ impl<'a> Resolver<'a> {
 
         let mut pool = Pool::new(self.allocator.next(), pool_id);
         self.capture_layout_bounds(node, pool.uid, layout);
-        let mut lane_ids = HashSet::new();
-        let mut stage_ids = HashSet::new();
+        let mut lane_ids = HashSet::<LaneId>::new();
+        let mut stage_ids = HashSet::<StageId>::new();
 
         for child_id in &node.children {
             let Some(lane_node) = self.document.node(*child_id) else {
@@ -241,16 +241,16 @@ impl<'a> Resolver<'a> {
         node: &SyntaxNode,
         pool: &mut Pool,
         layout: &mut Layout,
-        lane_ids: &mut HashSet<String>,
-        stage_ids: &mut HashSet<String>,
-        element_uids: &mut HashMap<String, Uid>,
+        lane_ids: &mut HashSet<LaneId>,
+        stage_ids: &mut HashSet<StageId>,
+        element_uids: &mut HashMap<ElementId, Uid>,
         pending_flows: &mut Vec<PendingFlow>,
     ) {
         let Some(lane_id) = node.text_name.clone() else {
             return;
         };
 
-        if !lane_ids.insert(lane_id.clone()) {
+        if !lane_ids.insert(lane_id.clone().into()) {
             self.binding_summary.unresolved_names += 1;
             self.diagnostics.push(ResolverDiagnostic::new(
                 ResolverDiagnosticSeverity::Error,
@@ -290,15 +290,15 @@ impl<'a> Resolver<'a> {
         lane_id: &str,
         pool: &mut Pool,
         layout: &mut Layout,
-        stage_ids: &mut HashSet<String>,
-        element_uids: &mut HashMap<String, Uid>,
+        stage_ids: &mut HashSet<StageId>,
+        element_uids: &mut HashMap<ElementId, Uid>,
         pending_flows: &mut Vec<PendingFlow>,
     ) {
         let Some(stage_id) = node.text_name.clone() else {
             return;
         };
 
-        if stage_ids.insert(stage_id.clone()) {
+        if stage_ids.insert(stage_id.clone().into()) {
             self.binding_summary.bound_names += 1;
             let stage = Stage::new(self.allocator.next(), stage_id.clone());
             self.capture_layout_bounds(node, stage.uid, layout);
@@ -327,7 +327,7 @@ impl<'a> Resolver<'a> {
             if let Some(bounds) = self.collect_bounds(element_node) {
                 layout.set(element.uid(), bounds);
             }
-            if element_uids.insert(element_id.clone(), element.uid()).is_some() {
+            if element_uids.insert(element_id.clone().into(), element.uid()).is_some() {
                 self.binding_summary.unresolved_names += 1;
                 self.diagnostics.push(ResolverDiagnostic::new(
                     ResolverDiagnosticSeverity::Error,
@@ -360,7 +360,7 @@ impl<'a> Resolver<'a> {
         let pending_flows = self.collect_flows(node, uid);
         let event = Event {
             uid,
-            id: id.clone(),
+            id: id.clone().into(),
             name,
             code,
             expressions,
@@ -401,7 +401,7 @@ impl<'a> Resolver<'a> {
         let pending_flows = self.collect_flows(node, uid);
         let task = Task {
             uid,
-            id: id.clone(),
+            id: id.clone().into(),
             name,
             code,
             call_target: (code == TaskCode::CallActivity).then(|| id.clone()),
@@ -431,7 +431,7 @@ impl<'a> Resolver<'a> {
         let pending_flows = self.collect_flows(node, uid);
         let gateway = Gateway {
             uid,
-            id: id.clone(),
+            id: id.clone().into(),
             name,
             code,
             dmn_ref,
@@ -546,7 +546,7 @@ impl<'a> Resolver<'a> {
     }
 
     fn lower_layout_section(&mut self, node: &SyntaxNode, collab: &Collab) -> Option<Layout> {
-        let mut grouped = HashMap::<String, PoolLayoutData>::new();
+        let mut grouped = HashMap::<PoolId, PoolLayoutData>::new();
 
         for child_id in &node.children {
             let Some(pool_node) = self.document.node(*child_id) else {
@@ -559,7 +559,7 @@ impl<'a> Resolver<'a> {
             let Some(pool_id) = pool_node.text_name.clone() else {
                 continue;
             };
-            let entry = grouped.entry(pool_id.clone()).or_default();
+            let entry = grouped.entry(pool_id.clone().into()).or_default();
             entry.pool = self.collect_bounds(pool_node);
 
             for lane_id in &pool_node.children {
@@ -574,7 +574,7 @@ impl<'a> Resolver<'a> {
                     continue;
                 };
                 if let Some(bounds) = self.collect_bounds(lane_node) {
-                    entry.lanes.insert(lane_name.clone(), bounds);
+                    entry.lanes.insert(lane_name.clone().into(), bounds);
                 }
 
                 for stage_id in &lane_node.children {
@@ -589,7 +589,7 @@ impl<'a> Resolver<'a> {
                         continue;
                     };
                     if let Some(bounds) = self.collect_bounds(stage_node) {
-                        entry.stages.insert(stage_name.clone(), bounds);
+                        entry.stages.insert(stage_name.clone().into(), bounds);
                     }
 
                     for element_id in &stage_node.children {
@@ -607,7 +607,7 @@ impl<'a> Resolver<'a> {
                             continue;
                         };
                         if let Some(bounds) = self.collect_bounds(element_node) {
-                            entry.elements.insert(element_name, bounds);
+                            entry.elements.insert(element_name.into(), bounds);
                         }
                     }
                 }

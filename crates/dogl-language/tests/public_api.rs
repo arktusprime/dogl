@@ -375,13 +375,9 @@ fn parse_accepts_quoted_display_names_while_preserving_ascii_ids() {
 }
 
 #[test]
-fn import_bpmn_reuses_parse_contract_and_exposes_syntax_errors() {
-    let output = import_bpmn("<definitions />");
-
-    assert_eq!(output.syntax.source.text, "<definitions />");
-    assert!(!output.syntax.tokens.is_empty());
-    assert!(output.semantic_file.is_none());
-    assert!(!output.syntax.diagnostics.is_empty());
+fn import_bpmn_returns_not_implemented() {
+    let result = import_bpmn("<definitions />");
+    assert_eq!(result, Err(ApplicationError::NotImplemented("import_bpmn")));
 }
 
 #[test]

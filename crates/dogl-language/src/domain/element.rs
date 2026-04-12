@@ -228,35 +228,35 @@ mod tests {
 
     #[test]
     fn element_delegates_uid_id_expressions_name() {
-        let uid = 100u128;
+        let uid = 100u64;
         let id = "Start".to_string();
         let name = name_from_id("Start");
         let e = Element::Event(Event {
             uid,
-            id: id.clone(),
+            id: id.clone().into(),
             name: name.clone(),
             code: EventCode::Start,
             expressions: vec![],
         });
         assert_eq!(e.uid(), uid);
-        assert_eq!(e.id(), &id);
+        assert_eq!(e.id().as_str(), id.as_str());
         assert_eq!(e.expressions(), &[] as &[_]);
         assert_eq!(e.name(), name.as_str());
     }
 
     #[test]
     fn task_element_delegates() {
-        let uid = 200u128;
+        let uid = 200u64;
         let el = Element::Task(Task {
             uid,
-            id: "DoWork".to_string(),
+            id: "DoWork".into(),
             name: name_from_id("DoWork"),
             code: TaskCode::Generic,
             call_target: None,
             expressions: vec![Expression::new("do", "run")],
         });
         assert_eq!(el.uid(), uid);
-        assert_eq!(el.id(), "DoWork");
+        assert_eq!(el.id().as_str(), "DoWork");
         assert_eq!(el.expressions().len(), 1);
         assert_eq!(el.name(), "Do work");
     }

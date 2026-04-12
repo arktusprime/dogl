@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::domain::{
-    Bounds, Collab, DoglFile, Element, EventCode, GatewayCode, Layout, Pool, TaskCode, Uid,
+    Bounds, Collab, DoglFile, Element, EventCode, GatewayCode, Layout, Pool, TaskCode, Uid, LaneId
 };
 use crate::domain::Identifiable;
 
@@ -17,22 +17,13 @@ const CELL_HEIGHT: f64 = TASK_HEIGHT * 2.0;
 const POOL_HEADER_WIDTH: f64 = 30.0;
 const LANE_LABEL_WIDTH: f64 = 30.0;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum LayoutError {
+    #[error("{0}")]
     Unsupported(&'static str),
+    #[error("{0}")]
     InvalidBounds(String),
 }
-
-impl std::fmt::Display for LayoutError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LayoutError::Unsupported(message) => write!(f, "{message}"),
-            LayoutError::InvalidBounds(message) => write!(f, "{message}"),
-        }
-    }
-}
-
-impl std::error::Error for LayoutError {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GridBounds {
@@ -58,14 +49,14 @@ struct GridCell {
 
 #[derive(Debug, Clone)]
 struct LaneState {
-    id: String,
+    id: LaneId,
     rows: usize,
 }
 
 #[derive(Debug, Clone)]
 struct ElementDescriptor<'a> {
     element: &'a Element,
-    lane_id: String,
+    lane_id: LaneId,
     decl_index: usize,
 }
 
@@ -127,7 +118,7 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
             rows: 1,
         })
         .collect();
-    let mut occupied = HashMap::<String, HashSet<(usize, usize)>>::new();
+    let mut occupied = HashMap::<LaneId, HashSet<(usize, usize)>>::new();
     let mut placed = HashMap::<Uid, GridCell>::new();
     let mut max_column = 0usize;
 
@@ -137,21 +128,32 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
         &mut lane_states,
         &mut occupied,
         &mut placed,
-    );
+    )?;
+
+    let mut nodes_by_column = HashMap::<usize, Vec<Uid>>::new();
+    for (&uid, cell) in &placed {
+        nodes_by_column.entry(cell.x).or_default().push(uid);
+    }
 
     let mut current_column = 0usize;
     while current_column <= max_column {
-        let mut sources: Vec<_> = descriptors
+        let Some(uids) = nodes_by_column.get(&current_column) else {
+            current_column += 1;
+            continue;
+        };
+
+        let mut sources: Vec<_> = uids
             .iter()
-            .filter_map(|descriptor| {
-                let cell = placed.get(&descriptor.uid())?;
-                (cell.x == current_column).then_some((descriptor, *cell))
+            .filter_map(|&uid| {
+                let descriptor = descriptors_by_uid.get(&uid)?;
+                let cell = placed.get(&uid)?;
+                Some((*descriptor, *cell))
             })
             .collect();
         sources.sort_by_key(|(descriptor, cell)| {
             (
                 *lane_index_by_id
-                    .get(&descriptor.lane_id)
+                    .get(descriptor.lane_id.as_str())
                     .unwrap_or(&usize::MAX),
                 cell.y,
                 descriptor.decl_index,
@@ -202,7 +204,8 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
                     &mut lane_states,
                     &mut occupied,
                     &mut placed,
-                );
+                )?;
+                nodes_by_column.entry(target_cell.x).or_default().push(target.uid());
                 max_column = max_column.max(target_cell.x);
                 if is_gateway_fan_out && fan_out_anchor_row.is_none() {
                     fan_out_anchor_row = Some(target_cell.y);
@@ -214,7 +217,7 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
     }
 
     let pool_grid_width = placed.values().map(|cell| cell.x).max().unwrap_or(0) + 1;
-    let mut lane_offsets = HashMap::<String, usize>::new();
+    let mut lane_offsets = HashMap::<LaneId, usize>::new();
     let mut next_lane_y = 0usize;
     for lane_state in &lane_states {
         lane_offsets.insert(lane_state.id.clone(), next_lane_y);
@@ -229,11 +232,11 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
     for lane in &lane_order {
         let lane_state = lane_states
             .iter()
-            .find(|state| state.id == lane.id)
-            .expect("lane state");
-        let lane_y = *lane_offsets.get(&lane.id).expect("lane offset");
+            .find(|state| state.id == lane.id.as_str())
+            .ok_or(LayoutError::Unsupported("lane state must exist"))?;
+        let lane_y = *lane_offsets.get(lane.id.as_str()).ok_or(LayoutError::Unsupported("lane offset must exist"))?;
         lane_grids.insert(
-            lane.id.clone(),
+            lane.id.to_string(),
             GridBounds {
                 x: 0,
                 y: lane_y,
@@ -256,8 +259,8 @@ pub fn compute_collab(collab: &Collab) -> Result<LayoutComputation, LayoutError>
             continue;
         };
         let lane_y = *lane_offsets
-            .get(&descriptor.lane_id)
-            .expect("lane offset for element");
+            .get(descriptor.lane_id.as_str())
+            .ok_or(LayoutError::Unsupported("lane offset for element must exist"))?;
         element_grids.insert(
             descriptor.uid(),
             GridBounds {
@@ -297,9 +300,9 @@ fn place_start_events(
     descriptors: &[ElementDescriptor<'_>],
     lane_order: &[&crate::domain::Lane],
     lane_states: &mut [LaneState],
-    occupied: &mut HashMap<String, HashSet<(usize, usize)>>,
+    occupied: &mut HashMap<LaneId, HashSet<(usize, usize)>>,
     placed: &mut HashMap<Uid, GridCell>,
-) {
+) -> Result<(), LayoutError> {
     for lane in lane_order {
         let start_events: Vec<_> = descriptors
             .iter()
@@ -320,25 +323,26 @@ fn place_start_events(
                 lane_states,
                 occupied,
                 placed,
-            );
+            )?;
         }
     }
+    Ok(())
 }
 
 fn place_in_lane(
     uid: Uid,
-    lane_id: &str,
+    lane_id: &LaneId,
     preferred_x: usize,
     preferred_y: usize,
     lane_states: &mut [LaneState],
-    occupied: &mut HashMap<String, HashSet<(usize, usize)>>,
+    occupied: &mut HashMap<LaneId, HashSet<(usize, usize)>>,
     placed: &mut HashMap<Uid, GridCell>,
-) -> GridCell {
-    let occupied_cells = occupied.entry(lane_id.to_string()).or_default();
+) -> Result<GridCell, LayoutError> {
+    let occupied_cells = occupied.entry(lane_id.clone()).or_default();
     let lane_state = lane_states
         .iter_mut()
-        .find(|state| state.id == lane_id)
-        .expect("lane state must exist");
+        .find(|state| &state.id == lane_id)
+        .ok_or(LayoutError::Unsupported("lane state must exist"))?;
     let mut y = preferred_y;
     while occupied_cells.contains(&(preferred_x, y)) {
         y += 1;
@@ -347,7 +351,7 @@ fn place_in_lane(
     occupied_cells.insert((preferred_x, y));
     let cell = GridCell { x: preferred_x, y };
     placed.insert(uid, cell);
-    cell
+    Ok(cell)
 }
 
 fn collect_lane_order(pool: &Pool) -> Vec<&crate::domain::Lane> {

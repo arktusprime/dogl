@@ -10,6 +10,7 @@ pub mod domain;
 pub mod application;
 pub mod validation;
 pub mod layout;
+pub mod adapters;
 
 pub use application::{
     apply_layout, export_bpmn, import_bpmn, layout_parse_output, parse, render_dogl, to_json,
